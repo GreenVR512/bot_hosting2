@@ -1180,7 +1180,7 @@
             <div class="server-details">
               <div class="server-detail">
                 <span>Host</span>
-                <strong class="copy-value" data-copy="theweirdpeoplelol.aternos.me">
+                <strong class="copy-value" id="serverHost" data-copy="theweirdpeoplelol.aternos.me">
                   theweirdpeoplelol.aternos.me
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <rect x="8" y="8" width="11" height="11" rx="2" />
@@ -1190,11 +1190,11 @@
               </div>
               <div class="server-detail">
                 <span>Port</span>
-                <strong>40676</strong>
+                <strong id="serverPort">40676</strong>
               </div>
               <div class="server-detail">
                 <span>Players online</span>
-                <strong>3 / 20</strong>
+                <strong id="playersOnline">0 / 20</strong>
               </div>
             </div>
           </article>
@@ -1352,13 +1352,127 @@
 
     <script>
       const toast = document.getElementById("toast");
+      const liveBadge = document.getElementById("liveBadge");
+      const botName = document.getElementById("botName");
+      const uptime = document.getElementById("uptime");
+      const serverHost = document.getElementById("serverHost");
+      const serverPort = document.getElementById("serverPort");
+      const playersOnline = document.getElementById("playersOnline");
+      const consoleBody = document.querySelector(".console-body");
+      const consoleInput = document.querySelector(".console-input");
+      const chatInput = document.getElementById("chatInput");
       let toastTimer;
+      let lastLogId = 0;
+      let hasLoadedLiveLogs = false;
 
       function showToast(message) {
         toast.textContent = message;
         toast.classList.add("visible");
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => toast.classList.remove("visible"), 2600);
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function formatTime(isoTime) {
+        if (isoTime === "now") return "now";
+        return new Date(isoTime).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        });
+      }
+
+      function formatUptime(milliseconds) {
+        const totalMinutes = Math.floor(milliseconds / 60000);
+        const days = Math.floor(totalMinutes / 1440);
+        const hours = Math.floor((totalMinutes % 1440) / 60);
+        const minutes = totalMinutes % 60;
+        if (!milliseconds) return "—";
+        return `${days ? `${days}d ` : ""}${hours}h ${minutes}m`;
+      }
+
+      function renderStatus(status) {
+        const state = status.state || "offline";
+        const labels = {
+          online: ["Online", "var(--mint)", "rgba(114,227,195,.09)"],
+          connecting: ["Connecting", "var(--amber)", "rgba(255,191,112,.09)"],
+          error: ["Error", "var(--danger)", "rgba(255,127,149,.09)"],
+          offline: ["Offline", "var(--danger)", "rgba(255,127,149,.09)"],
+        };
+        const [label, color, background] = labels[state] || labels.offline;
+        const dotShadow = color === "var(--mint)"
+          ? "rgba(114,227,195,.12)"
+          : color === "var(--amber)"
+            ? "rgba(255,191,112,.12)"
+            : "rgba(255,127,149,.12)";
+        liveBadge.innerHTML = `<span class="status-dot" style="background:${color};box-shadow:0 0 0 3px ${dotShadow}"></span> ${label}`;
+        liveBadge.style.color = color;
+        liveBadge.style.background = background;
+        botName.textContent = status.username || "TestingBot";
+        uptime.textContent = formatUptime(status.uptimeMs);
+        if (status.config) {
+          serverHost.dataset.copy = status.config.host;
+          serverHost.childNodes[0].textContent = `${status.config.host} `;
+          serverPort.textContent = status.config.port;
+        }
+        playersOnline.textContent = `${status.players || 0} / 20`;
+      }
+
+      function appendLogs(logs) {
+        if (!logs.length) return;
+        if (!hasLoadedLiveLogs) {
+          consoleBody.querySelectorAll(".console-line").forEach((line) => line.remove());
+          hasLoadedLiveLogs = true;
+        }
+        logs.forEach((entry) => {
+          const line = document.createElement("p");
+          line.className = "console-line";
+          const levelClass = entry.level === "error" ? "purple" : "highlight";
+          line.innerHTML = `<span class="console-time">${escapeHtml(formatTime(entry.time))}</span><span class="console-message"><span class="${levelClass}">${escapeHtml(entry.message.split("]")[0] + "]")}</span>${escapeHtml(entry.message.split("]").slice(1).join("]"))}</span>`;
+          consoleBody.insertBefore(line, consoleInput);
+          lastLogId = Math.max(lastLogId, Number(entry.id) || 0);
+        });
+      }
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          ...options,
+          headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Request failed.");
+        return payload;
+      }
+
+      async function refresh() {
+        try {
+          const status = await api("/api/status");
+          renderStatus(status);
+          const logPayload = await api(`/api/logs?after=${lastLogId}`);
+          appendLogs(logPayload.logs || []);
+        } catch (error) {
+          showToast(`Dashboard connection error: ${error.message}`);
+        }
+      }
+
+      async function controlBot(action, message) {
+        try {
+          const { status } = await api(`/api/bot/${action}`, { method: "POST", body: "{}" });
+          renderStatus(status);
+          showToast(message);
+          await refresh();
+        } catch (error) {
+          showToast(error.message);
+        }
       }
 
       document.querySelectorAll("[data-toast]").forEach((button) => {
@@ -1385,49 +1499,52 @@
         });
       });
 
-      const liveBadge = document.getElementById("liveBadge");
-      const botName = document.getElementById("botName");
-
       document.getElementById("stopBot").addEventListener("click", () => {
-        liveBadge.innerHTML = '<span class="status-dot" style="background: var(--danger); box-shadow: 0 0 0 3px rgba(255,127,149,.12)"></span> Offline';
-        liveBadge.style.color = "var(--danger)";
-        liveBadge.style.background = "rgba(255,127,149,.09)";
-        showToast("TestingBot stopped.");
+        controlBot("stop", "TestingBot stopped.");
       });
 
       document.getElementById("restartBot").addEventListener("click", () => {
-        liveBadge.innerHTML = '<span class="status-dot"></span> Online';
-        liveBadge.style.color = "var(--mint)";
-        liveBadge.style.background = "rgba(114,227,195,.09)";
-        showToast("TestingBot restarted successfully.");
+        controlBot("restart", "TestingBot is reconnecting to Minecraft.");
       });
 
-      document.getElementById("createBot").addEventListener("click", () => {
-        const name = prompt("Name your new bot:", "NewBot");
-        if (name?.trim()) {
-          botName.textContent = name.trim();
-          showToast(`${name.trim()} is ready to configure.`);
+      document.getElementById("createBot").addEventListener("click", async () => {
+        const host = prompt("Minecraft server host:", serverHost.dataset.copy || "theweirdpeoplelol.aternos.me");
+        if (!host?.trim()) return;
+        const port = prompt("Minecraft server port:", serverPort.textContent || "40676");
+        const username = prompt("Bot username:", botName.textContent || "TestingBot");
+        try {
+          const payload = await api("/api/bot/restart", {
+            method: "POST",
+            body: JSON.stringify({ host: host.trim(), port: Number(port), username: username?.trim() || "TestingBot" }),
+          });
+          renderStatus(payload.status);
+          showToast("Bot configuration saved. Connecting now.");
+          await refresh();
+        } catch (error) {
+          showToast(error.message);
         }
       });
 
-      const chatInput = document.getElementById("chatInput");
-      const consoleBody = document.querySelector(".console-body");
-
-      function sendChat() {
+      async function sendChat() {
         const message = chatInput.value.trim();
         if (!message) return;
-        const line = document.createElement("p");
-        line.className = "console-line";
-        line.innerHTML = `<span class="console-time">now</span><span class="console-message"><span class="highlight">[chat]</span> &lt;TestingBot&gt; ${message.replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</span>`;
-        consoleBody.insertBefore(line, document.querySelector(".console-input"));
-        chatInput.value = "";
-        showToast("Message sent to the Minecraft server.");
+        try {
+          await api("/api/chat", { method: "POST", body: JSON.stringify({ message }) });
+          chatInput.value = "";
+          await refresh();
+          showToast("Message sent to the Minecraft server.");
+        } catch (error) {
+          showToast(error.message);
+        }
       }
 
       document.getElementById("sendChat").addEventListener("click", sendChat);
       chatInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter") sendChat();
       });
+
+      refresh();
+      setInterval(refresh, 2500);
     </script>
   </body>
 </html>
