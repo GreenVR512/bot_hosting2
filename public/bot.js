@@ -15,9 +15,17 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
   let state = "offline";
   let startedAt = null;
   let retryTimer = null;
+  let movementTimer = null;
+  let jumpTimer = null;
   let shouldRun = false;
   let connectionId = 0;
   let sequence = 0;
+  let usageMs = 0;
+  let usageStartedAt = null;
+  const metrics = {
+    messagesSent: 0,
+    commandsExecuted: 0,
+  };
   const logs = [];
 
   function addLog(message, level = "info") {
@@ -40,6 +48,53 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     }
   }
 
+  function stopAntiAfk() {
+    if (movementTimer) {
+      clearInterval(movementTimer);
+      movementTimer = null;
+    }
+    if (jumpTimer) {
+      clearInterval(jumpTimer);
+      jumpTimer = null;
+    }
+    if (bot?.clearControlStates) {
+      bot.clearControlStates();
+    }
+  }
+
+  function startAntiAfk(currentBot, currentConnection) {
+    stopAntiAfk();
+
+    const movementStates = ["forward", "left", "forward", "right"];
+    let movementIndex = 0;
+
+    const move = () => {
+      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") {
+        stopAntiAfk();
+        return;
+      }
+      currentBot.clearControlStates();
+      currentBot.setControlState(movementStates[movementIndex], true);
+      movementIndex = (movementIndex + 1) % movementStates.length;
+    };
+
+    move();
+    movementTimer = setInterval(move, 4500);
+    jumpTimer = setInterval(() => {
+      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") {
+        stopAntiAfk();
+        return;
+      }
+      currentBot.setControlState("jump", true);
+      setTimeout(() => {
+        if (currentConnection === connectionId && currentBot === bot && state === "online") {
+          currentBot.setControlState("jump", false);
+        }
+      }, 450);
+    }, 3500);
+    addLog("[anti-afk] Auto-movement and jumping enabled.");
+  }
+
   function scheduleRetry() {
     clearRetry();
     if (!shouldRun) return;
@@ -52,6 +107,7 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
 
   function closeCurrentBot() {
     if (!bot) return;
+    stopAntiAfk();
     const currentBot = bot;
     bot = null;
     currentBot.removeAllListeners();
@@ -60,6 +116,12 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     } catch {
       // The socket may already be closed.
     }
+  }
+
+  function accrueUsage() {
+    if (!usageStartedAt) return;
+    usageMs += Date.now() - usageStartedAt;
+    usageStartedAt = Date.now();
   }
 
   function connect() {
@@ -91,7 +153,9 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       if (thisConnection !== connectionId) return;
       state = "online";
       startedAt = Date.now();
+      usageStartedAt = startedAt;
       addLog(`[system] ${bot.username} joined the Minecraft server.`);
+      startAntiAfk(bot, thisConnection);
     });
 
     bot.on("chat", (username, message) => {
@@ -105,6 +169,10 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
 
     bot.on("error", (error) => {
       if (thisConnection !== connectionId) return;
+      stopAntiAfk();
+      accrueUsage();
+      startedAt = null;
+      usageStartedAt = null;
       state = "error";
       addLog(`[error] ${error.message}`, "error");
       scheduleRetry();
@@ -117,8 +185,11 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
 
     bot.on("end", () => {
       if (thisConnection !== connectionId) return;
+      stopAntiAfk();
+      accrueUsage();
       bot = null;
       startedAt = null;
+      usageStartedAt = null;
       state = shouldRun ? "connecting" : "offline";
       addLog("[system] Bot disconnected.", "warning");
       scheduleRetry();
@@ -153,9 +224,12 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     stop() {
       shouldRun = false;
       clearRetry();
+      stopAntiAfk();
       connectionId += 1;
+      accrueUsage();
       closeCurrentBot();
       startedAt = null;
+      usageStartedAt = null;
       state = "offline";
       addLog("[system] Bot stopped by dashboard.");
       return this.getStatus();
@@ -164,9 +238,12 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     restart(nextConfig = {}) {
       shouldRun = false;
       clearRetry();
+      stopAntiAfk();
       connectionId += 1;
+      accrueUsage();
       closeCurrentBot();
       startedAt = null;
+      usageStartedAt = null;
       state = "offline";
       return this.start(nextConfig);
     },
@@ -178,11 +255,17 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
         throw new Error("The bot is not connected to Minecraft.");
       }
       bot.chat(cleanMessage);
+      if (cleanMessage.startsWith("/")) {
+        metrics.commandsExecuted += 1;
+      } else {
+        metrics.messagesSent += 1;
+      }
       addLog(`[chat] <${bot.username}> ${cleanMessage}`);
       return { sent: true };
     },
 
     getStatus() {
+      accrueUsage();
       const players = bot?.players ? Object.keys(bot.players) : [];
       return {
         state,
@@ -197,6 +280,11 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
         uptimeMs: startedAt ? Date.now() - startedAt : 0,
         players: players.length,
         playerNames: players.slice(0, 20),
+        metrics: {
+          ...metrics,
+          usageMs,
+          usageHours: Number((usageMs / 3600000).toFixed(4)),
+        },
         lastLogId: sequence,
       };
     },

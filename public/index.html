@@ -1214,13 +1214,13 @@
             </div>
             <div class="usage-body">
               <div class="usage-numbers">
-                <strong>186<span style="font-size: 14px; color: var(--muted)">h</span></strong>
+                <strong id="monthlyUsage">0<span style="font-size: 14px; color: var(--muted)">h</span></strong>
                 <span>of 600 hours</span>
               </div>
-              <div class="progress"><span></span></div>
+              <div class="progress"><span id="usageProgress"></span></div>
               <div class="usage-foot">
-                <span>31% used</span>
-                <span>414h remaining</span>
+                <span id="usagePercent">0% used</span>
+                <span id="usageRemaining">600h remaining</span>
               </div>
             </div>
           </article>
@@ -1236,8 +1236,8 @@
                 </svg>
               </span>
             </div>
-            <strong class="stat-value">2,846</strong>
-            <span class="stat-change">↑ 12.4% this week</span>
+            <strong class="stat-value" id="messagesSent">0</strong>
+            <span class="stat-change" id="messagesActivity">No activity yet</span>
           </article>
           <article class="card stat-card">
             <div class="stat-top">
@@ -1249,8 +1249,8 @@
                 </svg>
               </span>
             </div>
-            <strong class="stat-value">418</strong>
-            <span class="stat-change">↑ 8.1% this week</span>
+            <strong class="stat-value" id="commandsExecuted">0</strong>
+            <span class="stat-change" id="commandsActivity">No activity yet</span>
           </article>
           <article class="card stat-card">
             <div class="stat-top">
@@ -1358,6 +1358,14 @@
       const serverHost = document.getElementById("serverHost");
       const serverPort = document.getElementById("serverPort");
       const playersOnline = document.getElementById("playersOnline");
+      const monthlyUsage = document.getElementById("monthlyUsage");
+      const usageProgress = document.getElementById("usageProgress");
+      const usagePercent = document.getElementById("usagePercent");
+      const usageRemaining = document.getElementById("usageRemaining");
+      const messagesSent = document.getElementById("messagesSent");
+      const commandsExecuted = document.getElementById("commandsExecuted");
+      const messagesActivity = document.getElementById("messagesActivity");
+      const commandsActivity = document.getElementById("commandsActivity");
       const consoleBody = document.querySelector(".console-body");
       const consoleInput = document.querySelector(".console-input");
       const chatInput = document.getElementById("chatInput");
@@ -1400,6 +1408,14 @@
         return `${days ? `${days}d ` : ""}${hours}h ${minutes}m`;
       }
 
+      function formatHours(hours) {
+        if (!hours) return "0";
+        const rounded = Number(hours.toFixed(2));
+        if (!rounded) return "0";
+        if (hours < 1) return rounded.toFixed(2);
+        return hours.toFixed(1).replace(".0", "");
+      }
+
       function renderStatus(status) {
         const state = status.state || "offline";
         const labels = {
@@ -1425,6 +1441,22 @@
           serverPort.textContent = status.config.port;
         }
         playersOnline.textContent = `${status.players || 0} / 20`;
+
+        const metrics = status.metrics || {};
+        const usageHours = Number(metrics.usageHours || 0);
+        const sent = Number(metrics.messagesSent || 0);
+        const commands = Number(metrics.commandsExecuted || 0);
+        const usagePercentValue = Math.min(100, (usageHours / 600) * 100);
+        const remainingHours = Math.max(0, 600 - usageHours);
+
+        monthlyUsage.innerHTML = `${formatHours(usageHours)}<span style="font-size: 14px; color: var(--muted)">h</span>`;
+        usageProgress.style.width = `${usagePercentValue}%`;
+        usagePercent.textContent = `${usagePercentValue < 0.01 ? "0" : usagePercentValue.toFixed(1)}% used`;
+        usageRemaining.textContent = `${formatHours(remainingHours)}h remaining`;
+        messagesSent.textContent = sent.toLocaleString();
+        commandsExecuted.textContent = commands.toLocaleString();
+        messagesActivity.textContent = sent ? "Live bot activity" : "No activity yet";
+        commandsActivity.textContent = commands ? "Live bot activity" : "No activity yet";
       }
 
       function appendLogs(logs) {
