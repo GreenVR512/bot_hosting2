@@ -1,16 +1,12 @@
 {
   "name": "workspace",
   "version": "1.0.0",
-  "description": "",
   "main": "public/index.js",
   "scripts": {
     "start": "node public/index.js",
-    "test": "node --check public/index.js && node --check public/bot.js && node --check public/server.js"
+    "test": "node --check public/index.js && node --check public/bot.js && node --check public/server.js",
+    "render-build": "NODE_OPTIONS=\"--max-old-space-size=512\" npm ci --omit=dev --no-audit --no-fund"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "mineflayer": "^4.37.1"
   }
