@@ -763,6 +763,91 @@
         height: 14px;
       }
 
+      .behavior-card {
+        margin-top: 18px;
+        overflow: hidden;
+      }
+
+      .behavior-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        padding: 8px 0;
+      }
+
+      .behavior-option {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 67px;
+        padding: 12px 20px;
+        color: var(--muted-bright);
+        text-align: left;
+        background: transparent;
+        border: 0;
+        border-right: 1px solid var(--line);
+      }
+
+      .behavior-option:last-child {
+        border-right: 0;
+      }
+
+      .behavior-option:hover {
+        background: rgba(136, 166, 202, 0.07);
+      }
+
+      .behavior-copy {
+        display: grid;
+        gap: 4px;
+      }
+
+      .behavior-copy strong {
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .behavior-copy span {
+        color: var(--muted);
+        font-size: 9px;
+        line-height: 1.35;
+      }
+
+      .behavior-toggle {
+        position: relative;
+        flex: 0 0 auto;
+        width: 33px;
+        height: 19px;
+        padding: 0;
+        background: #1b2b41;
+        border: 1px solid var(--line-strong);
+        border-radius: 12px;
+        transition: 160ms ease;
+      }
+
+      .behavior-toggle::after {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 11px;
+        height: 11px;
+        content: "";
+        background: #71849e;
+        border-radius: 50%;
+        transition: 160ms ease;
+      }
+
+      .behavior-toggle[aria-checked="true"] {
+        background: rgba(114, 227, 195, 0.22);
+        border-color: rgba(114, 227, 195, 0.56);
+      }
+
+      .behavior-toggle[aria-checked="true"]::after {
+        left: 17px;
+        background: var(--mint);
+        box-shadow: 0 0 10px rgba(114, 227, 195, 0.38);
+      }
+
       .quick-card {
         overflow: hidden;
       }
@@ -868,6 +953,18 @@
         .dashboard-grid,
         .lower-grid {
           grid-template-columns: 1fr;
+        }
+
+        .behavior-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .behavior-option:nth-child(2) {
+          border-right: 0;
+        }
+
+        .behavior-option:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--line);
         }
 
         .server-card {
@@ -990,6 +1087,20 @@
 
         .stat-change {
           display: inline-block;
+        }
+
+        .behavior-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .behavior-option,
+        .behavior-option:nth-child(2) {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .behavior-option:last-child {
+          border-bottom: 0;
         }
 
         .card-header {
@@ -1267,6 +1378,46 @@
           </article>
         </section>
 
+        <section class="card behavior-card" aria-label="Bot behavior settings">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Bot behavior</h2>
+              <p class="card-subtitle">Choose what TestingBot should do while it is online</p>
+            </div>
+            <div class="live-badge"><span class="status-dot"></span> Live settings</div>
+          </div>
+          <div class="behavior-grid">
+            <button class="behavior-option" type="button" data-behavior="antiAfk" aria-pressed="true">
+              <span class="behavior-copy">
+                <strong>Stay active</strong>
+                <span>Walk around to prevent AFK kicks</span>
+              </span>
+              <span class="behavior-toggle" role="switch" aria-checked="true" aria-label="Stay active"></span>
+            </button>
+            <button class="behavior-option" type="button" data-behavior="autoJump" aria-pressed="true">
+              <span class="behavior-copy">
+                <strong>Auto jump</strong>
+                <span>Jump while moving around</span>
+              </span>
+              <span class="behavior-toggle" role="switch" aria-checked="true" aria-label="Auto jump"></span>
+            </button>
+            <button class="behavior-option" type="button" data-behavior="killAnimals" aria-pressed="false">
+              <span class="behavior-copy">
+                <strong>Hunt animals</strong>
+                <span>Attack nearby passive animals</span>
+              </span>
+              <span class="behavior-toggle" role="switch" aria-checked="false" aria-label="Hunt animals"></span>
+            </button>
+            <button class="behavior-option" type="button" data-behavior="autoReconnect" aria-pressed="true">
+              <span class="behavior-copy">
+                <strong>Auto reconnect</strong>
+                <span>Reconnect after a kick or timeout</span>
+              </span>
+              <span class="behavior-toggle" role="switch" aria-checked="true" aria-label="Auto reconnect"></span>
+            </button>
+          </div>
+        </section>
+
         <section class="lower-grid">
           <article class="card console-card">
             <div class="card-header">
@@ -1366,6 +1517,7 @@
       const commandsExecuted = document.getElementById("commandsExecuted");
       const messagesActivity = document.getElementById("messagesActivity");
       const commandsActivity = document.getElementById("commandsActivity");
+      const behaviorOptions = [...document.querySelectorAll("[data-behavior]")];
       const consoleBody = document.querySelector(".console-body");
       const consoleInput = document.querySelector(".console-input");
       const chatInput = document.getElementById("chatInput");
@@ -1457,6 +1609,14 @@
         commandsExecuted.textContent = commands.toLocaleString();
         messagesActivity.textContent = sent ? "Live bot activity" : "No activity yet";
         commandsActivity.textContent = commands ? "Live bot activity" : "No activity yet";
+
+        if (status.behavior) {
+          behaviorOptions.forEach((option) => {
+            const enabled = Boolean(status.behavior[option.dataset.behavior]);
+            option.setAttribute("aria-pressed", String(enabled));
+            option.querySelector(".behavior-toggle").setAttribute("aria-checked", String(enabled));
+          });
+        }
       }
 
       function appendLogs(logs) {
@@ -1537,6 +1697,23 @@
 
       document.getElementById("restartBot").addEventListener("click", () => {
         controlBot("restart", "TestingBot is reconnecting to Minecraft.");
+      });
+
+      behaviorOptions.forEach((option) => {
+        option.addEventListener("click", async () => {
+          const behavior = option.dataset.behavior;
+          const current = option.getAttribute("aria-pressed") === "true";
+          try {
+            const payload = await api("/api/bot/behavior", {
+              method: "POST",
+              body: JSON.stringify({ [behavior]: !current }),
+            });
+            renderStatus(payload.status);
+            showToast(`${option.querySelector("strong").textContent} ${!current ? "enabled" : "disabled"}.`);
+          } catch (error) {
+            showToast(error.message);
+          }
+        });
       });
 
       document.getElementById("createBot").addEventListener("click", async () => {

@@ -66,6 +66,19 @@ function cleanConfig(input = {}) {
   return result;
 }
 
+function cleanBehavior(input = {}) {
+  const result = {};
+  for (const key of ["antiAfk", "autoJump", "killAnimals", "autoReconnect"]) {
+    if (input[key] !== undefined) {
+      if (typeof input[key] !== "boolean") {
+        throw new Error(`${key} must be true or false.`);
+      }
+      result[key] = input[key];
+    }
+  }
+  return result;
+}
+
 async function handleApi(request, response, url) {
   try {
     if (request.method === "GET" && url.pathname === "/api/status") {
@@ -88,6 +101,11 @@ async function handleApi(request, response, url) {
 
     if (request.method === "POST" && url.pathname === "/api/bot/stop") {
       return sendJson(response, 200, { ok: true, status: controller.stop() });
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/bot/behavior") {
+      const behavior = cleanBehavior(await readJson(request));
+      return sendJson(response, 200, { ok: true, status: controller.setBehavior(behavior) });
     }
 
     if (request.method === "POST" && url.pathname === "/api/chat") {

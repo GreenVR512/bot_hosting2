@@ -22,6 +22,13 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
   let sequence = 0;
   let usageMs = 0;
   let usageStartedAt = null;
+  let animalTimer = null;
+  const behavior = {
+    antiAfk: true,
+    autoJump: true,
+    killAnimals: false,
+    autoReconnect: true,
+  };
   const metrics = {
     messagesSent: 0,
     commandsExecuted: 0,
@@ -62,8 +69,16 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     }
   }
 
+  function stopAnimalGuard() {
+    if (animalTimer) {
+      clearInterval(animalTimer);
+      animalTimer = null;
+    }
+  }
+
   function startAntiAfk(currentBot, currentConnection) {
     stopAntiAfk();
+    if (!behavior.antiAfk) return;
 
     const movementStates = ["forward", "left", "forward", "right"];
     let movementIndex = 0;
@@ -80,24 +95,81 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
 
     move();
     movementTimer = setInterval(move, 4500);
-    jumpTimer = setInterval(() => {
+    if (behavior.autoJump) {
+      jumpTimer = setInterval(() => {
+        if (currentConnection !== connectionId || currentBot !== bot || state !== "online") {
+          stopAntiAfk();
+          return;
+        }
+        currentBot.setControlState("jump", true);
+        setTimeout(() => {
+          if (currentConnection === connectionId && currentBot === bot && state === "online") {
+            currentBot.setControlState("jump", false);
+          }
+        }, 450);
+      }, 3500);
+    }
+    addLog("[anti-afk] Auto-movement and jumping enabled.");
+  }
+
+  function startAnimalGuard(currentBot, currentConnection) {
+    stopAnimalGuard();
+    if (!behavior.killAnimals) return;
+
+    const animalNames = new Set([
+      "armadillo",
+      "bee",
+      "camel",
+      "cat",
+      "chicken",
+      "cow",
+      "donkey",
+      "fox",
+      "goat",
+      "horse",
+      "llama",
+      "mule",
+      "mooshroom",
+      "ocelot",
+      "parrot",
+      "pig",
+      "rabbit",
+      "sheep",
+      "sniffer",
+      "strider",
+      "turtle",
+      "wolf",
+    ]);
+
+    const hunt = () => {
       if (currentConnection !== connectionId || currentBot !== bot || state !== "online") {
-        stopAntiAfk();
+        stopAnimalGuard();
         return;
       }
-      currentBot.setControlState("jump", true);
-      setTimeout(() => {
-        if (currentConnection === connectionId && currentBot === bot && state === "online") {
-          currentBot.setControlState("jump", false);
-        }
-      }, 450);
-    }, 3500);
-    addLog("[anti-afk] Auto-movement and jumping enabled.");
+
+      const target = currentBot.nearestEntity((entity) => {
+        if (!entity?.position || !animalNames.has(entity.name)) return false;
+        return currentBot.entity.position.distanceTo(entity.position) <= 5;
+      });
+
+      if (!target) return;
+      try {
+        currentBot.lookAt(target.position.offset(0, target.height / 2, 0), true);
+        currentBot.attack(target);
+        addLog(`[combat] Attacked nearby ${target.name}.`);
+      } catch (error) {
+        addLog(`[combat] Could not attack ${target.name}: ${error.message}`, "warning");
+      }
+    };
+
+    hunt();
+    animalTimer = setInterval(hunt, 2500);
+    addLog("[combat] Passive-animal targeting enabled within 5 blocks.");
   }
 
   function scheduleRetry() {
     clearRetry();
-    if (!shouldRun) return;
+    if (!shouldRun || !behavior.autoReconnect) return;
     retryTimer = setTimeout(() => {
       retryTimer = null;
       connect();
@@ -108,6 +180,7 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
   function closeCurrentBot() {
     if (!bot) return;
     stopAntiAfk();
+    stopAnimalGuard();
     const currentBot = bot;
     bot = null;
     currentBot.removeAllListeners();
@@ -156,6 +229,7 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       usageStartedAt = startedAt;
       addLog(`[system] ${bot.username} joined the Minecraft server.`);
       startAntiAfk(bot, thisConnection);
+      startAnimalGuard(bot, thisConnection);
     });
 
     bot.on("chat", (username, message) => {
@@ -170,6 +244,7 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     bot.on("error", (error) => {
       if (thisConnection !== connectionId) return;
       stopAntiAfk();
+      stopAnimalGuard();
       accrueUsage();
       startedAt = null;
       usageStartedAt = null;
@@ -186,6 +261,7 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     bot.on("end", () => {
       if (thisConnection !== connectionId) return;
       stopAntiAfk();
+      stopAnimalGuard();
       accrueUsage();
       bot = null;
       startedAt = null;
@@ -225,6 +301,7 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       shouldRun = false;
       clearRetry();
       stopAntiAfk();
+      stopAnimalGuard();
       connectionId += 1;
       accrueUsage();
       closeCurrentBot();
@@ -239,6 +316,7 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       shouldRun = false;
       clearRetry();
       stopAntiAfk();
+      stopAnimalGuard();
       connectionId += 1;
       accrueUsage();
       closeCurrentBot();
@@ -246,6 +324,34 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       usageStartedAt = null;
       state = "offline";
       return this.start(nextConfig);
+    },
+
+    setBehavior(nextBehavior = {}) {
+      for (const key of Object.keys(behavior)) {
+        if (typeof nextBehavior[key] === "boolean") {
+          behavior[key] = nextBehavior[key];
+        }
+      }
+
+      if (!behavior.autoReconnect) {
+        clearRetry();
+      }
+
+      if (bot && state === "online") {
+        if (behavior.antiAfk) {
+          startAntiAfk(bot, connectionId);
+        } else {
+          stopAntiAfk();
+        }
+        if (behavior.killAnimals) {
+          startAnimalGuard(bot, connectionId);
+        } else {
+          stopAnimalGuard();
+        }
+      }
+
+      addLog(`[settings] Behavior updated: AFK ${behavior.antiAfk ? "on" : "off"}, animal targeting ${behavior.killAnimals ? "on" : "off"}.`);
+      return this.getStatus();
     },
 
     chat(message) {
@@ -280,6 +386,7 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
         uptimeMs: startedAt ? Date.now() - startedAt : 0,
         players: players.length,
         playerNames: players.slice(0, 20),
+        behavior: { ...behavior },
         metrics: {
           ...metrics,
           usageMs,
