@@ -5,7 +5,7 @@ const { URL } = require("url");
 const { createBotController } = require("./bot");
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.join(__dirname, "public");
+const PUBLIC_DIR = __dirname;
 const controller = createBotController();
 
 function readJson(request) {
