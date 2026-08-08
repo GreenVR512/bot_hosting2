@@ -17,18 +17,26 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
   let retryTimer = null;
   let movementTimer = null;
   let jumpTimer = null;
+  let targetPlayerTimer = null;
+  let autoEatTimer = null;
+  let guardTimer = null;
   let shouldRun = false;
   let connectionId = 0;
   let sequence = 0;
   let usageMs = 0;
   let usageStartedAt = null;
   let animalTimer = null;
+
   const behavior = {
     antiAfk: true,
     autoJump: true,
     killAnimals: false,
+    targetPlayers: false,
+    autoEat: true,
+    guardMode: false,
     autoReconnect: true,
   };
+
   const metrics = {
     messagesSent: 0,
     commandsExecuted: 0,
@@ -76,6 +84,27 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     }
   }
 
+  function stopPlayerTargeting() {
+    if (targetPlayerTimer) {
+      clearInterval(targetPlayerTimer);
+      targetPlayerTimer = null;
+    }
+  }
+
+  function stopAutoEat() {
+    if (autoEatTimer) {
+      clearInterval(autoEatTimer);
+      autoEatTimer = null;
+    }
+  }
+
+  function stopGuardMode() {
+    if (guardTimer) {
+      clearInterval(guardTimer);
+      guardTimer = null;
+    }
+  }
+
   function startAntiAfk(currentBot, currentConnection) {
     stopAntiAfk();
     if (!behavior.antiAfk) return;
@@ -112,33 +141,104 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     addLog("[anti-afk] Auto-movement and jumping enabled.");
   }
 
+  function startPlayerTargeting(currentBot, currentConnection) {
+    stopPlayerTargeting();
+    if (!behavior.targetPlayers) return;
+
+    const track = () => {
+      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") {
+        stopPlayerTargeting();
+        return;
+      }
+
+      const playerTarget = currentBot.nearestEntity(
+        (e) => e.type === "player" && e.username !== currentBot.username
+      );
+
+      if (playerTarget && playerTarget.position) {
+        currentBot.lookAt(playerTarget.position.offset(0, playerTarget.height || 1.6, 0), true);
+        const dist = currentBot.entity.position.distanceTo(playerTarget.position);
+        if (dist > 2) {
+          currentBot.setControlState("forward", true);
+        } else {
+          currentBot.setControlState("forward", false);
+        }
+      }
+    };
+
+    track();
+    targetPlayerTimer = setInterval(track, 1000);
+    addLog("[target-players] Player tracking enabled.");
+  }
+
+  function startAutoEat(currentBot, currentConnection) {
+    stopAutoEat();
+    if (!behavior.autoEat) return;
+
+    const checkHunger = async () => {
+      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") {
+        stopAutoEat();
+        return;
+      }
+
+      if (currentBot.food < 18) {
+        const foodItem = currentBot.inventory.items().find((item) => item.name.includes("cooked") || item.name.includes("bread") || item.name.includes("apple"));
+        if (foodItem) {
+          try {
+            await currentBot.equip(foodItem, "hand");
+            await currentBot.consume();
+            addLog(`[auto-eat] Ate ${foodItem.name}.`);
+          } catch (err) {
+            // Couldn't consume item
+          }
+        }
+      }
+    };
+
+    autoEatTimer = setInterval(checkHunger, 5000);
+    addLog("[auto-eat] Auto replenishment active.");
+  }
+
+  function startGuardMode(currentBot, currentConnection) {
+    stopGuardMode();
+    if (!behavior.guardMode) return;
+
+    const guard = () => {
+      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") {
+        stopGuardMode();
+        return;
+      }
+
+      const hostile = currentBot.nearestEntity((e) => {
+        if (!e?.position || e.type !== "mob") return false;
+        return (
+          ["zombie", "skeleton", "spider", "creeper", "enderman"].includes(e.name) &&
+          currentBot.entity.position.distanceTo(e.position) <= 6
+        );
+      });
+
+      if (hostile) {
+        try {
+          currentBot.lookAt(hostile.position.offset(0, hostile.height / 2, 0), true);
+          currentBot.attack(hostile);
+          addLog(`[guard] Defending against hostile mob: ${hostile.name}.`);
+        } catch (e) {}
+      }
+    };
+
+    guard();
+    guardTimer = setInterval(guard, 1500);
+    addLog("[guard] Hostile mob defense active within 6 blocks.");
+  }
+
   function startAnimalGuard(currentBot, currentConnection) {
     stopAnimalGuard();
     if (!behavior.killAnimals) return;
 
     const animalNames = new Set([
-      "armadillo",
-      "bee",
-      "camel",
-      "cat",
-      "chicken",
-      "cow",
-      "donkey",
-      "fox",
-      "goat",
-      "horse",
-      "llama",
-      "mule",
-      "mooshroom",
-      "ocelot",
-      "parrot",
-      "pig",
-      "rabbit",
-      "sheep",
-      "sniffer",
-      "strider",
-      "turtle",
-      "wolf",
+      "armadillo", "bee", "camel", "cat", "chicken", "cow", "donkey", "fox",
+      "goat", "horse", "llama", "mule", "mooshroom", "ocelot", "parrot",
+      "pig", "rabbit", "sheep", "sniffer", "strider", "turtle", "wolf"
     ]);
 
     const hunt = () => {
@@ -181,14 +281,15 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     if (!bot) return;
     stopAntiAfk();
     stopAnimalGuard();
+    stopPlayerTargeting();
+    stopAutoEat();
+    stopGuardMode();
     const currentBot = bot;
     bot = null;
     currentBot.removeAllListeners();
     try {
       currentBot.quit();
-    } catch {
-      // The socket may already be closed.
-    }
+    } catch {}
   }
 
   function accrueUsage() {
@@ -230,6 +331,9 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       addLog(`[system] ${bot.username} joined the Minecraft server.`);
       startAntiAfk(bot, thisConnection);
       startAnimalGuard(bot, thisConnection);
+      startPlayerTargeting(bot, thisConnection);
+      startAutoEat(bot, thisConnection);
+      startGuardMode(bot, thisConnection);
     });
 
     bot.on("chat", (username, message) => {
@@ -245,6 +349,9 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       if (thisConnection !== connectionId) return;
       stopAntiAfk();
       stopAnimalGuard();
+      stopPlayerTargeting();
+      stopAutoEat();
+      stopGuardMode();
       accrueUsage();
       startedAt = null;
       usageStartedAt = null;
@@ -262,6 +369,9 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       if (thisConnection !== connectionId) return;
       stopAntiAfk();
       stopAnimalGuard();
+      stopPlayerTargeting();
+      stopAutoEat();
+      stopGuardMode();
       accrueUsage();
       bot = null;
       startedAt = null;
@@ -302,6 +412,9 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       clearRetry();
       stopAntiAfk();
       stopAnimalGuard();
+      stopPlayerTargeting();
+      stopAutoEat();
+      stopGuardMode();
       connectionId += 1;
       accrueUsage();
       closeCurrentBot();
@@ -317,6 +430,9 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       clearRetry();
       stopAntiAfk();
       stopAnimalGuard();
+      stopPlayerTargeting();
+      stopAutoEat();
+      stopGuardMode();
       connectionId += 1;
       accrueUsage();
       closeCurrentBot();
@@ -338,19 +454,23 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       }
 
       if (bot && state === "online") {
-        if (behavior.antiAfk) {
-          startAntiAfk(bot, connectionId);
-        } else {
-          stopAntiAfk();
-        }
-        if (behavior.killAnimals) {
-          startAnimalGuard(bot, connectionId);
-        } else {
-          stopAnimalGuard();
-        }
+        if (behavior.antiAfk) startAntiAfk(bot, connectionId);
+        else stopAntiAfk();
+
+        if (behavior.killAnimals) startAnimalGuard(bot, connectionId);
+        else stopAnimalGuard();
+
+        if (behavior.targetPlayers) startPlayerTargeting(bot, connectionId);
+        else stopPlayerTargeting();
+
+        if (behavior.autoEat) startAutoEat(bot, connectionId);
+        else stopAutoEat();
+
+        if (behavior.guardMode) startGuardMode(bot, connectionId);
+        else stopGuardMode();
       }
 
-      addLog(`[settings] Behavior updated: AFK ${behavior.antiAfk ? "on" : "off"}, animal targeting ${behavior.killAnimals ? "on" : "off"}.`);
+      addLog(`[settings] Behaviors updated.`);
       return this.getStatus();
     },
 
@@ -407,21 +527,3 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
 }
 
 module.exports = { createBotController, DEFAULT_CONFIG };
-
-if (require.main === module) {
-  const controller = createBotController();
-  controller.start();
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  rl.on("line", (line) => {
-    try {
-      controller.chat(line);
-    } catch (error) {
-      console.error(`[error] ${error.message}`);
-    }
-  });
-  process.on("SIGINT", () => {
-    controller.stop();
-    rl.close();
-    process.exit(0);
-  });
-}
