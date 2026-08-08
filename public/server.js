@@ -2,10 +2,10 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { URL } = require("url");
-const { createBotController, DEFAULT_CONFIG } = require("./bot");
+const { createBotController, DEFAULT_CONFIG } = require("./bot_2.js");
 
 const PORT = Number(process.env.PORT || 5000);
-const publicFile = path.join(__dirname, "index.html");
+const publicFile = path.join(__dirname, "index_2.html");
 const controller = createBotController(DEFAULT_CONFIG);
 
 function sendJson(response, status, payload) {
@@ -132,7 +132,7 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (url.pathname === "/" || url.pathname === "/index.html") {
+  if (url.pathname === "/" || url.pathname === "/index.html" || url.pathname === "/index_2.html") {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return response.end(fs.readFileSync(publicFile));
   }
