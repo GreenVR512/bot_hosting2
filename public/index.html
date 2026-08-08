@@ -1,227 +1,403 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CraftHost — Bot Dashboard</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        --bg: #08111f;
-        --panel: #0e1a2b;
-        --panel-raised: #122238;
-        --line: rgba(159, 186, 221, 0.13);
-        --text: #f1f6fb;
-        --muted: #8da0b9;
-        --mint: #72e3c3;
-        --danger: #ff7f95;
-        font-family: Inter, system-ui, sans-serif;
-      }
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minecraft Bot Controller</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
 
-      * { box-sizing: border-box; }
-      body { margin: 0; background: var(--bg); color: var(--text); padding: 24px; }
-      .container { max-width: 1100px; margin: 0 auto; display: grid; gap: 20px; }
-      
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 20px;
-      }
+    body {
+      background: #121212;
+      color: #e0e0e0;
+      padding: 20px;
+    }
 
-      .header { display: flex; justify-content: space-between; align-items: center; }
-      .btn {
-        padding: 8px 16px;
-        border-radius: 6px;
-        font-weight: bold;
-        cursor: pointer;
-        border: 0;
-      }
-      .btn-primary { background: var(--mint); color: #08111f; }
-      .btn-danger { background: var(--danger); color: #08111f; }
-      .btn-secondary { background: var(--panel-raised); color: var(--text); border: 1px solid var(--line); }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
 
-      .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .card {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+    }
 
-      .behavior-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px;
-        background: var(--panel-raised);
-        border-radius: 8px;
-        border: 1px solid var(--line);
-      }
+    .full-width {
+      grid-column: 1 / -1;
+    }
 
-      .toggle-btn {
-        width: 44px;
-        height: 24px;
-        background: #1b2b41;
-        border-radius: 12px;
-        position: relative;
-        cursor: pointer;
-        border: 1px solid var(--line);
-      }
+    h2 {
+      margin-bottom: 15px;
+      font-size: 1.2rem;
+      color: #fff;
+      border-bottom: 1px solid #333;
+      padding-bottom: 8px;
+    }
 
-      .toggle-btn[data-active="true"] { background: var(--mint); }
-      .toggle-btn::after {
-        content: "";
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: 18px;
-        height: 18px;
-        background: #fff;
-        border-radius: 50%;
-        transition: 0.2s;
-      }
-      .toggle-btn[data-active="true"]::after { left: 22px; }
+    .status-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 15px;
+    }
 
-      .chat-box {
-        height: 220px;
-        background: #050b14;
-        border-radius: 8px;
-        padding: 12px;
-        overflow-y: auto;
-        font-family: monospace;
-        font-size: 13px;
-        margin-bottom: 12px;
-        border: 1px solid var(--line);
-      }
+    .status-badge {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
 
-      .chat-input-group { display: flex; gap: 10px; }
-      .chat-input-group input {
-        flex: 1;
-        background: var(--panel-raised);
-        border: 1px solid var(--line);
-        color: var(--text);
-        padding: 10px;
-        border-radius: 6px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="card header">
-        <div>
-          <h1 style="margin:0; font-size: 22px;">CraftHost Controller</h1>
-          <span id="status-text" style="color: var(--muted); font-size: 14px;">Status: Checking...</span>
-        </div>
-        <div>
-          <button class="btn btn-primary" id="btn-start">Start Bot</button>
-          <button class="btn btn-danger" id="btn-stop">Stop Bot</button>
-        </div>
+    .status-online { background: #2e7d32; color: #fff; }
+    .status-offline { background: #c62828; color: #fff; }
+    .status-connecting { background: #f57f17; color: #fff; }
+
+    .btn {
+      background: #333;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    .btn:hover { background: #444; }
+    .btn-primary { background: #1976d2; }
+    .btn-primary:hover { background: #1565c0; }
+    .btn-danger { background: #d32f2f; }
+    .btn-danger:hover { background: #c62828; }
+
+    /* Action & GUI Controls */
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+
+    .action-card {
+      background: #282828;
+      border: 1px solid #3d3d3d;
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .action-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+
+    .state-tag {
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .state-tag.enabled { background: #2e7d32; color: #e8f5e9; }
+    .state-tag.disabled { background: #424242; color: #9e9e9e; }
+
+    .gui-input-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 5px;
+    }
+
+    input[type="text"], input[type="number"] {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      color: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      width: 100%;
+    }
+
+    .console {
+      background: #000;
+      color: #00ff00;
+      font-family: monospace;
+      padding: 12px;
+      border-radius: 4px;
+      height: 250px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      font-size: 0.85rem;
+    }
+
+    .chat-input {
+      display: flex;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Status & Connection Card -->
+    <div class="card">
+      <div class="status-header">
+        <h2>Bot Status</h2>
+        <span id="bot-status-badge" class="status-badge status-offline">Offline</span>
       </div>
-
-      <div class="card">
-        <h3>Automated Behaviors</h3>
-        <div class="grid-3">
-          <div class="behavior-item">
-            <div><strong>Anti-AFK Movement</strong><br><small style="color:var(--muted)">Jumps & moves around</small></div>
-            <div class="toggle-btn" id="toggle-antiAfk" data-key="antiAfk"></div>
-          </div>
-          <div class="behavior-item">
-            <div><strong>Target Players</strong><br><small style="color:var(--muted)">Follows nearby players</small></div>
-            <div class="toggle-btn" id="toggle-targetPlayers" data-key="targetPlayers"></div>
-          </div>
-          <div class="behavior-item">
-            <div><strong>Auto-Eat Food</strong><br><small style="color:var(--muted)">Eats when low hunger</small></div>
-            <div class="toggle-btn" id="toggle-autoEat" data-key="autoEat"></div>
-          </div>
-          <div class="behavior-item">
-            <div><strong>Defensive Guard</strong><br><small style="color:var(--muted)">Attacks hostile mobs</small></div>
-            <div class="toggle-btn" id="toggle-guardMode" data-key="guardMode"></div>
-          </div>
-          <div class="behavior-item">
-            <div><strong>Target Animals</strong><br><small style="color:var(--muted)">Hunts passive mobs</small></div>
-            <div class="toggle-btn" id="toggle-killAnimals" data-key="killAnimals"></div>
-          </div>
-          <div class="behavior-item">
-            <div><strong>Auto Reconnect</strong><br><small style="color:var(--muted)">Reconnects on kick</small></div>
-            <div class="toggle-btn" id="toggle-autoReconnect" data-key="autoReconnect"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Console & Live Chat</h3>
-        <div class="chat-box" id="console-logs"></div>
-        <div class="chat-input-group">
-          <input type="text" id="chat-input" placeholder="Type a message or command (e.g., /help)..." />
-          <button class="btn btn-secondary" id="btn-send-chat">Send</button>
-        </div>
+      <p><strong>Username:</strong> <span id="bot-username">-</span></p>
+      <p><strong>Server:</strong> <span id="bot-server">-</span></p>
+      <p><strong>Uptime:</strong> <span id="bot-uptime">0s</span></p>
+      <br>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-primary" onclick="startBot()">Start Bot</button>
+        <button class="btn btn-danger" onclick="stopBot()">Stop Bot</button>
       </div>
     </div>
 
-    <script>
-      let lastLogId = 0;
+    <!-- Behavior Controls -->
+    <div class="card">
+      <h2>Behavior Settings</h2>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <label>
+          <input type="checkbox" id="chk-afk" onchange="updateBehavior()"> Anti-AFK Movement
+        </label>
+        <label>
+          <input type="checkbox" id="chk-reconnect" onchange="updateBehavior()"> Auto Reconnect
+        </label>
+        <label>
+          <input type="checkbox" id="chk-animals" onchange="updateBehavior()"> Auto Attack Animals
+        </label>
+      </div>
+    </div>
 
-      async function fetchStatus() {
-        try {
-          const res = await fetch("/api/status");
-          const data = await res.json();
-          document.getElementById("status-text").innerText = `Status: ${data.state.toUpperCase()} | Players: ${data.players}`;
-          
-          Object.keys(data.behavior).forEach(key => {
-            const el = document.querySelector(`[data-key="${key}"]`);
-            if (el) el.setAttribute("data-active", data.behavior[key] ? "true" : "false");
-          });
-        } catch (e) {}
+    <!-- GUI & Item Action Controls -->
+    <div class="card full-width">
+      <h2>GUI & Action Controls</h2>
+      <div class="action-grid">
+        
+        <!-- Slot Clicker -->
+        <div class="action-card">
+          <div class="action-card-header">
+            <span>GUI Inventory Click</span>
+            <span id="tag-gui-click" class="state-tag disabled">Disabled</span>
+          </div>
+          <div class="gui-input-group">
+            <input type="number" id="click-slot-id" placeholder="Slot #" min="0" value="0">
+            <button class="btn btn-primary" onclick="triggerSlotClick()">Click Slot</button>
+          </div>
+        </div>
+
+        <!-- Swing Arm / Left Click -->
+        <div class="action-card">
+          <div class="action-card-header">
+            <span>Swing Arm (Left-Click)</span>
+            <span id="tag-swing" class="state-tag disabled">Disabled</span>
+          </div>
+          <button class="btn" onclick="triggerSwingArm()">Swing Arm</button>
+        </div>
+
+        <!-- Right Click / Use Item -->
+        <div class="action-card">
+          <div class="action-card-header">
+            <span>Use Item (Right-Click)</span>
+            <span id="tag-use" class="state-tag disabled">Disabled</span>
+          </div>
+          <button class="btn" onclick="triggerUseItem()">Use / Activate</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Live Console & Chat -->
+    <div class="card full-width">
+      <h2>Live Console</h2>
+      <div id="console-log" class="console"></div>
+      <div class="chat-input">
+        <input type="text" id="chat-message" placeholder="Type chat message or command (/clickslot 0, /swing, /use)..." onkeypress="handleKeyPress(event)">
+        <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let lastLogId = 0;
+    let actionTimeoutWindow = null;
+
+    // Helper to toggle status tags dynamically
+    function setTagState(elementId, isEnabled, durationMs = 3000) {
+      const tag = document.getElementById(elementId);
+      if (!tag) return;
+
+      if (isEnabled) {
+        tag.textContent = "Enabled";
+        tag.className = "state-tag enabled";
+        
+        if (durationMs > 0) {
+          setTimeout(() => {
+            tag.textContent = "Disabled";
+            tag.className = "state-tag disabled";
+          }, durationMs);
+        }
+      } else {
+        tag.textContent = "Disabled";
+        tag.className = "state-tag disabled";
       }
+    }
 
-      async function fetchLogs() {
-        try {
-          const res = await fetch(`/api/logs?after=${lastLogId}`);
-          const logs = await res.json();
-          const consoleBox = document.getElementById("console-logs");
-          logs.forEach(log => {
-            lastLogId = Math.max(lastLogId, log.id);
-            const line = document.createElement("div");
-            line.innerText = `[${new Date(log.time).toLocaleTimeString()}] ${log.message}`;
-            consoleBox.appendChild(line);
-          });
-          if (logs.length > 0) consoleBox.scrollTop = consoleBox.scrollHeight;
-        } catch (e) {}
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        
+        const badge = document.getElementById('bot-status-badge');
+        badge.textContent = data.state;
+        badge.className = `status-badge status-${data.state}`;
+
+        document.getElementById('bot-username').textContent = data.username || '-';
+        document.getElementById('bot-server').textContent = `${data.config.host}:${data.config.port}`;
+        document.getElementById('bot-uptime').textContent = Math.floor(data.uptimeMs / 1000) + 's';
+
+        document.getElementById('chk-afk').checked = !!data.behavior.antiAfk;
+        document.getElementById('chk-reconnect').checked = !!data.behavior.autoReconnect;
+        document.getElementById('chk-animals').checked = !!data.behavior.killAnimals;
+      } catch (e) {
+        console.error(e);
       }
+    }
 
-      async function sendChat() {
-        const input = document.getElementById("chat-input");
-        const message = input.value.trim();
-        if (!message) return;
-        try {
-          const res = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message })
+    async function fetchLogs() {
+      try {
+        const res = await fetch(`/api/logs?after=${lastLogId}`);
+        const data = await res.json();
+        
+        if (data.logs && data.logs.length > 0) {
+          const consoleEl = document.getElementById('console-log');
+          data.logs.forEach(log => {
+            consoleEl.innerText += `\n[${log.time.split('T')[1].slice(0, 8)}] ${log.message}`;
+            lastLogId = log.id;
           });
-          if (res.ok) input.value = "";
-        } catch (e) {}
+          consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+      } catch (e) {
+        console.error(e);
       }
+    }
 
-      document.querySelectorAll(".toggle-btn").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const key = btn.getAttribute("data-key");
-          const currentState = btn.getAttribute("data-active") === "true";
-          try {
-            await fetch("/api/behavior", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ [key]: !currentState })
-            });
-            fetchStatus();
-          } catch (e) {}
-        });
-      });
-
-      document.getElementById("btn-start").addEventListener("click", () => fetch("/api/start", { method: "POST" }));
-      document.getElementById("btn-stop").addEventListener("click", () => fetch("/api/stop", { method: "POST" }));
-      document.getElementById("btn-send-chat").addEventListener("click", sendChat);
-      document.getElementById("chat-input").addEventListener("keypress", (e) => { if (e.key === "Enter") sendChat(); });
-
-      setInterval(fetchStatus, 2000);
-      setInterval(fetchLogs, 1000);
+    async function startBot() {
+      await fetch('/api/bot/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
       fetchStatus();
-      fetchLogs();
-    </script>
-  </body>
+    }
+
+    async function stopBot() {
+      await fetch('/api/bot/stop', { method: 'POST' });
+      setTagState('tag-gui-click', false, 0);
+      setTagState('tag-swing', false, 0);
+      setTagState('tag-use', false, 0);
+      fetchStatus();
+    }
+
+    async function updateBehavior() {
+      const behavior = {
+        antiAfk: document.getElementById('chk-afk').checked,
+        autoReconnect: document.getElementById('chk-reconnect').checked,
+        killAnimals: document.getElementById('chk-animals').checked,
+      };
+      await fetch('/api/bot/behavior', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(behavior)
+      });
+    }
+
+    async function triggerSlotClick() {
+      const slot = parseInt(document.getElementById('click-slot-id').value, 10);
+      try {
+        const res = await fetch('/api/bot/click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slot, mouseButton: 0, mode: 0 })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setTagState('tag-gui-click', true, 2500);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function triggerSwingArm() {
+      try {
+        const res = await fetch('/api/bot/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: '/swing' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setTagState('tag-swing', true, 1500);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function triggerUseItem() {
+      try {
+        const res = await fetch('/api/bot/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: '/use' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setTagState('tag-use', true, 1500);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById('chat-message');
+      const message = input.value.trim();
+      if (!message) return;
+
+      await fetch('/api/bot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+      input.value = '';
+    }
+
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') sendChatMessage();
+    }
+
+    setInterval(fetchStatus, 3000);
+    setInterval(fetchLogs, 1000);
+    fetchStatus();
+    fetchLogs();
+  </script>
+</body>
 </html>
