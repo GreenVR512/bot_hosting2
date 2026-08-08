@@ -3,609 +3,225 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="CraftHost Minecraft bot hosting command center."
-    />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2372e3c3'/%3E%3Cpath d='M8 18l8-11 8 11M11 18h10v7H11z' fill='none' stroke='%2308171f' stroke-width='2.5'/%3E%3C/svg%3E"
-    />
-    <title>CraftHost — Minecraft bot hosting</title>
+    <title>CraftHost — Bot Dashboard</title>
     <style>
       :root {
         color-scheme: dark;
         --bg: #08111f;
         --panel: #0e1a2b;
         --panel-raised: #122238;
-        --panel-soft: #0b1727;
         --line: rgba(159, 186, 221, 0.13);
-        --line-strong: rgba(159, 186, 221, 0.23);
         --text: #f1f6fb;
         --muted: #8da0b9;
-        --muted-bright: #b8c6d8;
         --mint: #72e3c3;
-        --mint-dark: #163b3a;
-        --violet: #9a88ff;
-        --amber: #ffbf70;
         --danger: #ff7f95;
-        --shadow: 0 24px 70px rgba(1, 8, 19, 0.3);
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: Inter, system-ui, sans-serif;
       }
 
       * { box-sizing: border-box; }
-
-      body {
-        min-width: 320px;
-        min-height: 100vh;
-        margin: 0;
-        color: var(--text);
-        background: radial-gradient(circle at 76% -10%, rgba(93, 77, 192, 0.17), transparent 34rem),
-                    radial-gradient(circle at 0% 48%, rgba(41, 135, 131, 0.08), transparent 28rem),
-                    var(--bg);
-      }
-
-      button, input { font: inherit; }
-      button { cursor: pointer; }
-
-      .app-shell { display: flex; min-height: 100vh; }
-
-      .sidebar {
-        position: sticky;
-        top: 0;
-        display: flex;
-        flex: 0 0 244px;
-        flex-direction: column;
-        width: 244px;
-        height: 100vh;
-        padding: 27px 16px 18px;
-        border-right: 1px solid var(--line);
-        background: rgba(7, 17, 31, 0.78);
-        backdrop-filter: blur(18px);
-      }
-
-      .brand {
-        display: flex;
-        gap: 11px;
-        align-items: center;
-        padding: 0 12px;
-        margin-bottom: 42px;
-        color: var(--text);
-        font-size: 16px;
-        font-weight: 750;
-        letter-spacing: -0.03em;
-      }
-
-      .brand-mark {
-        display: grid;
-        width: 30px;
-        height: 30px;
-        place-items: center;
-        color: #071721;
-        background: var(--mint);
-        border-radius: 9px;
-        box-shadow: 0 0 23px rgba(114, 227, 195, 0.2);
-      }
-
-      .brand-mark svg { width: 18px; height: 18px; }
-
-      .eyebrow {
-        padding: 0 12px;
-        margin: 0 0 10px;
-        color: #667c98;
-        font-size: 10px;
-        font-weight: 750;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-      }
-
-      .nav-list { display: grid; gap: 4px; margin-bottom: 27px; }
-
-      .nav-item {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        width: 100%;
-        padding: 10px 12px;
-        color: var(--muted);
-        text-align: left;
-        background: transparent;
-        border: 1px solid transparent;
-        border-radius: 9px;
-        transition: 160ms ease;
-      }
-
-      .nav-item:hover, .nav-item.active {
-        color: var(--text);
-        background: rgba(136, 166, 202, 0.09);
-        border-color: var(--line);
-      }
-
-      .nav-item.active { box-shadow: inset 2px 0 0 var(--mint); }
-      .nav-item svg { flex: 0 0 auto; width: 16px; height: 16px; opacity: 0.82; }
-      .nav-item span { font-size: 12px; font-weight: 630; }
-
-      .sidebar-spacer { flex: 1; }
-
-      .upgrade-card {
-        padding: 14px;
-        margin: 0 4px 15px;
-        background: linear-gradient(140deg, rgba(139, 115, 255, 0.19), rgba(87, 57, 176, 0.04)), var(--panel);
-        border: 1px solid rgba(153, 135, 255, 0.2);
-        border-radius: 12px;
-      }
-
-      .upgrade-card strong { display: block; margin-bottom: 6px; font-size: 12px; }
-      .upgrade-card p { margin: 0 0 13px; color: var(--muted); font-size: 10px; line-height: 1.5; }
-
-      .upgrade-link {
-        display: inline-flex;
-        gap: 5px;
-        align-items: center;
-        padding: 0;
-        color: #c5bbff;
-        font-size: 10px;
-        font-weight: 700;
-        background: transparent;
-        border: 0;
-      }
-
-      .profile {
-        display: flex;
-        gap: 9px;
-        align-items: center;
-        padding: 11px 12px 0;
-        border-top: 1px solid var(--line);
-      }
-
-      .avatar {
-        display: grid;
-        width: 28px;
-        height: 28px;
-        place-items: center;
-        color: #d4ccff;
-        font-size: 10px;
-        font-weight: 750;
-        background: #3a326f;
-        border: 1px solid rgba(173, 161, 255, 0.28);
-        border-radius: 50%;
-      }
-
-      .profile-copy { display: grid; gap: 2px; }
-      .profile-copy strong { font-size: 11px; }
-      .profile-copy span { color: var(--muted); font-size: 9px; }
-
-      .main {
-        width: min(100%, 1320px);
-        padding: 27px clamp(22px, 4vw, 58px) 44px;
-        margin: 0 auto;
-      }
-
-      .topbar {
-        display: flex;
-        gap: 18px;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 39px;
-      }
-
-      .topbar h1 {
-        margin: 0 0 6px;
-        font-size: clamp(23px, 2.6vw, 31px);
-        font-weight: 650;
-        letter-spacing: -0.045em;
-      }
-
-      .topbar p { margin: 0; color: var(--muted); font-size: 12px; }
-      .topbar-actions { display: flex; gap: 10px; align-items: center; }
-
-      .icon-button, .secondary-button, .primary-button {
-        display: inline-flex;
-        gap: 8px;
-        align-items: center;
-        justify-content: center;
-        height: 37px;
-        padding: 0 14px;
-        font-size: 11px;
-        font-weight: 700;
-        border-radius: 8px;
-        transition: 160ms ease;
-      }
-
-      .icon-button { width: 37px; padding: 0; color: var(--muted-bright); background: var(--panel); border: 1px solid var(--line); }
-      .icon-button:hover, .secondary-button:hover { border-color: var(--line-strong); background: var(--panel-raised); }
-      .icon-button svg, .secondary-button svg, .primary-button svg { width: 14px; height: 14px; }
-      .secondary-button { color: var(--muted-bright); background: var(--panel); border: 1px solid var(--line); }
-
-      .primary-button {
-        color: #071721;
-        background: var(--mint);
-        border: 1px solid var(--mint);
-        box-shadow: 0 8px 22px rgba(114, 227, 195, 0.13);
-      }
-
-      .primary-button:hover {
-        background: #9bf2d8;
-        border-color: #9bf2d8;
-        transform: translateY(-1px);
-      }
-
-      .dashboard-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1.5fr) minmax(255px, 0.85fr);
-        gap: 18px;
-      }
-
+      body { margin: 0; background: var(--bg); color: var(--text); padding: 24px; }
+      .container { max-width: 1100px; margin: 0 auto; display: grid; gap: 20px; }
+      
       .card {
-        background: linear-gradient(145deg, rgba(18, 34, 56, 0.83), rgba(11, 23, 39, 0.93));
+        background: var(--panel);
         border: 1px solid var(--line);
-        border-radius: 13px;
-        box-shadow: var(--shadow);
-      }
-
-      .card-header {
-        display: flex;
-        gap: 15px;
-        align-items: center;
-        justify-content: space-between;
-        padding: 18px 20px;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .card-title { margin: 0; font-size: 12px; font-weight: 750; letter-spacing: -0.01em; }
-      .card-subtitle { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
-
-      .live-badge {
-        display: inline-flex;
-        gap: 6px;
-        align-items: center;
-        padding: 6px 8px;
-        color: var(--mint);
-        font-size: 9px;
-        font-weight: 750;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        background: rgba(114, 227, 195, 0.09);
-        border: 1px solid rgba(114, 227, 195, 0.16);
-        border-radius: 6px;
-      }
-
-      .status-dot {
-        width: 6px;
-        height: 6px;
-        background: var(--mint);
-        border-radius: 50%;
-        box-shadow: 0 0 0 3px rgba(114, 227, 195, 0.12);
-      }
-
-      .bot-card { overflow: hidden; }
-      .bot-overview { display: flex; gap: 18px; align-items: center; padding: 21px 20px 20px; }
-
-      .bot-icon {
-        display: grid;
-        flex: 0 0 auto;
-        width: 58px;
-        height: 58px;
-        place-items: center;
-        color: var(--mint);
-        background: linear-gradient(145deg, rgba(114, 227, 195, 0.18), rgba(53, 110, 110, 0.05)), #102a36;
-        border: 1px solid rgba(114, 227, 195, 0.2);
-        border-radius: 13px;
-      }
-
-      .bot-icon svg { width: 30px; height: 30px; }
-      .bot-name { margin: 0 0 4px; font-size: 21px; font-weight: 650; letter-spacing: -0.04em; }
-      .bot-description { margin: 0; color: var(--muted); font-size: 10px; }
-      .bot-meta { display: flex; gap: 18px; align-items: center; margin-left: auto; }
-
-      .meta-item { display: grid; gap: 5px; padding-left: 18px; border-left: 1px solid var(--line); }
-      .meta-item span { color: var(--muted); font-size: 9px; }
-      .meta-item strong { color: var(--muted-bright); font-size: 11px; font-weight: 650; }
-
-      .bot-controls { display: flex; gap: 9px; padding: 0 20px 20px; }
-      .bot-controls .secondary-button { height: 32px; font-size: 10px; }
-
-      .server-card { padding-bottom: 18px; }
-      .server-card .card-header { border-bottom: 0; }
-
-      .server-visual {
-        position: relative;
-        min-height: 117px;
-        margin: 0 20px 15px;
-        overflow: hidden;
-        background: linear-gradient(180deg, rgba(14, 25, 44, 0.11), rgba(14, 25, 44, 0.8)),
-                    repeating-linear-gradient(135deg, rgba(120, 156, 195, 0.08) 0 1px, transparent 1px 20px),
-                    linear-gradient(120deg, #132e3d, #1f2541 55%, #30265c);
-        border: 1px solid rgba(125, 160, 201, 0.13);
-        border-radius: 10px;
-      }
-
-      .server-visual::after {
-        position: absolute;
-        right: 22%;
-        bottom: -36px;
-        width: 120px;
-        height: 83px;
-        content: "";
-        background: rgba(118, 224, 199, 0.18);
-        filter: blur(30px);
-        border-radius: 50%;
-      }
-
-      .mountain {
-        position: absolute;
-        bottom: 0;
-        width: 0;
-        height: 0;
-        border-right: 85px solid transparent;
-        border-bottom: 74px solid rgba(8, 19, 34, 0.62);
-        border-left: 85px solid transparent;
-      }
-
-      .mountain.one { left: 24px; }
-      .mountain.two { right: 34px; transform: scale(1.35); transform-origin: bottom; opacity: 0.65; }
-
-      .server-label {
-        position: absolute;
-        z-index: 1;
-        top: 15px;
-        left: 16px;
-        color: #c1cee0;
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-
-      .server-details { display: grid; gap: 10px; padding: 0 20px; }
-      .server-detail { display: flex; align-items: center; justify-content: space-between; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
-      .server-detail:last-child { padding-bottom: 0; border-bottom: 0; }
-      .server-detail span { color: var(--muted); font-size: 10px; }
-      .server-detail strong { color: var(--muted-bright); font-size: 10px; font-weight: 650; }
-
-      .copy-value { display: inline-flex; gap: 6px; align-items: center; color: var(--mint) !important; cursor: pointer; }
-      .copy-value svg { width: 12px; height: 12px; }
-
-      .behavior-card { margin-top: 18px; overflow: hidden; }
-      .behavior-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; padding: 8px 0; }
-
-      .behavior-option {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        justify-content: space-between;
-        min-height: 67px;
-        padding: 12px 20px;
-        color: var(--muted-bright);
-        text-align: left;
-        background: transparent;
-        border: 0;
-        border-right: 1px solid var(--line);
-      }
-
-      .behavior-option:last-child { border-right: 0; }
-      .behavior-option:hover { background: rgba(136, 166, 202, 0.07); }
-      .behavior-copy { display: grid; gap: 4px; }
-      .behavior-copy strong { font-size: 10px; font-weight: 700; }
-      .behavior-copy span { color: var(--muted); font-size: 9px; line-height: 1.35; }
-
-      .behavior-toggle {
-        position: relative;
-        flex: 0 0 auto;
-        width: 33px;
-        height: 19px;
-        padding: 0;
-        background: #1b2b41;
-        border: 1px solid var(--line-strong);
         border-radius: 12px;
-        transition: 160ms ease;
+        padding: 20px;
       }
 
-      .behavior-toggle::after {
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        width: 11px;
-        height: 11px;
-        content: "";
-        background: #71849e;
-        border-radius: 50%;
-        transition: 160ms ease;
+      .header { display: flex; justify-content: space-between; align-items: center; }
+      .btn {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        border: 0;
       }
+      .btn-primary { background: var(--mint); color: #08111f; }
+      .btn-danger { background: var(--danger); color: #08111f; }
+      .btn-secondary { background: var(--panel-raised); color: var(--text); border: 1px solid var(--line); }
 
-      .behavior-toggle[aria-checked="true"] {
-        background: rgba(114, 227, 195, 0.22);
-        border-color: rgba(114, 227, 195, 0.56);
-      }
+      .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
 
-      .behavior-toggle[aria-checked="true"]::after {
-        left: 17px;
-        background: var(--mint);
-        box-shadow: 0 0 10px rgba(114, 227, 195, 0.38);
-      }
-
-      .toast {
-        position: fixed;
-        right: 22px;
-        bottom: 22px;
-        z-index: 10;
-        max-width: calc(100vw - 44px);
-        padding: 11px 14px;
-        color: #071721;
-        font-size: 11px;
-        font-weight: 700;
-        background: var(--mint);
+      .behavior-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        background: var(--panel-raised);
         border-radius: 8px;
-        box-shadow: 0 12px 28px rgba(1, 8, 19, 0.4);
-        opacity: 0;
-        transform: translateY(8px);
-        pointer-events: none;
-        transition: 180ms ease;
+        border: 1px solid var(--line);
       }
 
-      .toast.visible { opacity: 1; transform: translateY(0); }
-
-      @media (max-width: 980px) {
-        .sidebar { flex-basis: 208px; width: 208px; }
-        .main { padding-right: 24px; padding-left: 24px; }
-        .dashboard-grid { grid-template-columns: 1fr; }
-        .behavior-grid { grid-template-columns: repeat(2, 1fr); }
+      .toggle-btn {
+        width: 44px;
+        height: 24px;
+        background: #1b2b41;
+        border-radius: 12px;
+        position: relative;
+        cursor: pointer;
+        border: 1px solid var(--line);
       }
 
-      @media (max-width: 680px) {
-        .app-shell { display: block; }
-        .sidebar { width: 100%; height: auto; position: static; }
-        .behavior-grid { grid-template-columns: 1fr; }
+      .toggle-btn[data-active="true"] { background: var(--mint); }
+      .toggle-btn::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 18px;
+        height: 18px;
+        background: #fff;
+        border-radius: 50%;
+        transition: 0.2s;
+      }
+      .toggle-btn[data-active="true"]::after { left: 22px; }
+
+      .chat-box {
+        height: 220px;
+        background: #050b14;
+        border-radius: 8px;
+        padding: 12px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 13px;
+        margin-bottom: 12px;
+        border: 1px solid var(--line);
+      }
+
+      .chat-input-group { display: flex; gap: 10px; }
+      .chat-input-group input {
+        flex: 1;
+        background: var(--panel-raised);
+        border: 1px solid var(--line);
+        color: var(--text);
+        padding: 10px;
+        border-radius: 6px;
       }
     </style>
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <div class="brand">
-          <div class="brand-mark">
-            <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          </div>
-          <span>CraftHost</span>
+    <div class="container">
+      <div class="card header">
+        <div>
+          <h1 style="margin:0; font-size: 22px;">CraftHost Controller</h1>
+          <span id="status-text" style="color: var(--muted); font-size: 14px;">Status: Checking...</span>
         </div>
-        <div class="eyebrow">Navigation</div>
-        <nav class="nav-list">
-          <button class="nav-item active">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-            <span>Dashboard</span>
-          </button>
-        </nav>
-        <div class="sidebar-spacer"></div>
-        <div class="upgrade-card">
-          <strong>Need more slots?</strong>
-          <p>Upgrade to Pro for 24/7 dedicated bot uptime and high speed routing.</p>
-          <button class="upgrade-link">Learn More &rarr;</button>
+        <div>
+          <button class="btn btn-primary" id="btn-start">Start Bot</button>
+          <button class="btn btn-danger" id="btn-stop">Stop Bot</button>
         </div>
-        <div class="profile">
-          <div class="avatar">JB</div>
-          <div class="profile-copy">
-            <strong>Bot Admin</strong>
-            <span>Active Instance</span>
+      </div>
+
+      <div class="card">
+        <h3>Automated Behaviors</h3>
+        <div class="grid-3">
+          <div class="behavior-item">
+            <div><strong>Anti-AFK Movement</strong><br><small style="color:var(--muted)">Jumps & moves around</small></div>
+            <div class="toggle-btn" id="toggle-antiAfk" data-key="antiAfk"></div>
+          </div>
+          <div class="behavior-item">
+            <div><strong>Target Players</strong><br><small style="color:var(--muted)">Follows nearby players</small></div>
+            <div class="toggle-btn" id="toggle-targetPlayers" data-key="targetPlayers"></div>
+          </div>
+          <div class="behavior-item">
+            <div><strong>Auto-Eat Food</strong><br><small style="color:var(--muted)">Eats when low hunger</small></div>
+            <div class="toggle-btn" id="toggle-autoEat" data-key="autoEat"></div>
+          </div>
+          <div class="behavior-item">
+            <div><strong>Defensive Guard</strong><br><small style="color:var(--muted)">Attacks hostile mobs</small></div>
+            <div class="toggle-btn" id="toggle-guardMode" data-key="guardMode"></div>
+          </div>
+          <div class="behavior-item">
+            <div><strong>Target Animals</strong><br><small style="color:var(--muted)">Hunts passive mobs</small></div>
+            <div class="toggle-btn" id="toggle-killAnimals" data-key="killAnimals"></div>
+          </div>
+          <div class="behavior-item">
+            <div><strong>Auto Reconnect</strong><br><small style="color:var(--muted)">Reconnects on kick</small></div>
+            <div class="toggle-btn" id="toggle-autoReconnect" data-key="autoReconnect"></div>
           </div>
         </div>
-      </aside>
+      </div>
 
-      <main class="main">
-        <header class="topbar">
-          <div>
-            <h1>Bot Command Center</h1>
-            <p>Manage and configure your Mineflayer instances.</p>
-          </div>
-          <div class="topbar-actions">
-            <button class="secondary-button" id="btn-restart">Restart</button>
-            <button class="primary-button" id="btn-start">Start Bot</button>
-          </div>
-        </header>
-
-        <div class="dashboard-grid">
-          <section class="card bot-card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Instance Details</h2>
-                <div class="card-subtitle">Active execution target</div>
-              </div>
-              <div class="live-badge"><span class="status-dot"></span> Online</div>
-            </div>
-            <div class="bot-overview">
-              <div class="bot-icon">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-              </div>
-              <div>
-                <h3 class="bot-name" id="display-username">TestingBot</h3>
-                <p class="bot-description">Mineflayer automated Minecraft node script.</p>
-              </div>
-              <div class="bot-meta">
-                <div class="meta-item">
-                  <span>Target</span>
-                  <strong id="display-host">aternos.me</strong>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="card server-card">
-            <div class="card-header">
-              <h2 class="card-title">Server Connection</h2>
-            </div>
-            <div class="server-visual">
-              <span class="server-label">Minecraft Realm</span>
-              <div class="mountain one"></div>
-              <div class="mountain two"></div>
-            </div>
-            <div class="server-details">
-              <div class="server-detail">
-                <span>Address</span>
-                <strong class="copy-value" id="display-address">theweirdpeoplelol.aternos.me:40676</strong>
-              </div>
-            </div>
-          </section>
+      <div class="card">
+        <h3>Console & Live Chat</h3>
+        <div class="chat-box" id="console-logs"></div>
+        <div class="chat-input-group">
+          <input type="text" id="chat-input" placeholder="Type a message or command (e.g., /help)..." />
+          <button class="btn btn-secondary" id="btn-send-chat">Send</button>
         </div>
-
-        <section class="card behavior-card">
-          <div class="card-header">
-            <div>
-              <h2 class="card-title">Automated Behaviors</h2>
-              <div class="card-subtitle">Configure real-time bot interaction loops</div>
-            </div>
-          </div>
-          <div class="behavior-grid">
-            <div class="behavior-option">
-              <div class="behavior-copy">
-                <strong>Anti-AFK Movement</strong>
-                <span>Periodically move and jump to avoid idling out.</span>
-              </div>
-              <button class="behavior-toggle" id="toggle-afk" aria-checked="true"></button>
-            </div>
-
-            <div class="behavior-option">
-              <div class="behavior-copy">
-                <strong>Target Players</strong>
-                <span>Track and follow nearby player entities continuously.</span>
-              </div>
-              <button class="behavior-toggle" id="toggle-target-players" aria-checked="false"></button>
-            </div>
-
-            <div class="behavior-option">
-              <div class="behavior-copy">
-                <strong>Auto-Eat Food</strong>
-                <span>Consume food items when hunger/health drops.</span>
-              </div>
-              <button class="behavior-toggle" id="toggle-auto-eat" aria-checked="true"></button>
-            </div>
-
-            <div class="behavior-option">
-              <div class="behavior-copy">
-                <strong>Defensive Guard</strong>
-                <span>Attack hostile mobs that come within range.</span>
-              </div>
-              <button class="behavior-toggle" id="toggle-guard" aria-checked="false"></button>
-            </div>
-
-            <div class="behavior-option">
-              <div class="behavior-copy">
-                <strong>Target Animals</strong>
-                <span>Attack nearby passive animals within range.</span>
-              </div>
-              <button class="behavior-toggle" id="toggle-animals" aria-checked="false"></button>
-            </div>
-
-            <div class="behavior-option">
-              <div class="behavior-copy">
-                <strong>Auto Reconnect</strong>
-                <span>Reconnect automatically if disconnected.</span>
-              </div>
-              <button class="behavior-toggle" id="toggle-reconnect" aria-checked="true"></button>
-            </div>
-          </div>
-        </section>
-
-        <div id="toast" class="toast">Settings Saved</div>
-      </main>
+      </div>
     </div>
+
+    <script>
+      let lastLogId = 0;
+
+      async function fetchStatus() {
+        try {
+          const res = await fetch("/api/status");
+          const data = await res.json();
+          document.getElementById("status-text").innerText = `Status: ${data.state.toUpperCase()} | Players: ${data.players}`;
+          
+          Object.keys(data.behavior).forEach(key => {
+            const el = document.querySelector(`[data-key="${key}"]`);
+            if (el) el.setAttribute("data-active", data.behavior[key] ? "true" : "false");
+          });
+        } catch (e) {}
+      }
+
+      async function fetchLogs() {
+        try {
+          const res = await fetch(`/api/logs?after=${lastLogId}`);
+          const logs = await res.json();
+          const consoleBox = document.getElementById("console-logs");
+          logs.forEach(log => {
+            lastLogId = Math.max(lastLogId, log.id);
+            const line = document.createElement("div");
+            line.innerText = `[${new Date(log.time).toLocaleTimeString()}] ${log.message}`;
+            consoleBox.appendChild(line);
+          });
+          if (logs.length > 0) consoleBox.scrollTop = consoleBox.scrollHeight;
+        } catch (e) {}
+      }
+
+      async function sendChat() {
+        const input = document.getElementById("chat-input");
+        const message = input.value.trim();
+        if (!message) return;
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message })
+          });
+          if (res.ok) input.value = "";
+        } catch (e) {}
+      }
+
+      document.querySelectorAll(".toggle-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const key = btn.getAttribute("data-key");
+          const currentState = btn.getAttribute("data-active") === "true";
+          try {
+            await fetch("/api/behavior", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ [key]: !currentState })
+            });
+            fetchStatus();
+          } catch (e) {}
+        });
+      });
+
+      document.getElementById("btn-start").addEventListener("click", () => fetch("/api/start", { method: "POST" }));
+      document.getElementById("btn-stop").addEventListener("click", () => fetch("/api/stop", { method: "POST" }));
+      document.getElementById("btn-send-chat").addEventListener("click", sendChat);
+      document.getElementById("chat-input").addEventListener("keypress", (e) => { if (e.key === "Enter") sendChat(); });
+
+      setInterval(fetchStatus, 2000);
+      setInterval(fetchLogs, 1000);
+      fetchStatus();
+      fetchLogs();
+    </script>
   </body>
 </html>
