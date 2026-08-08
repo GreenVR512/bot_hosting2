@@ -2,92 +2,81 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { URL } = require("url");
-const { createBotController } = require("./bot");
+const { createBotController, DEFAULT_CONFIG } = require("./bot");
 
-const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = __dirname;
-const controller = createBotController();
+const PORT = Number(process.env.PORT || 5000);
+const publicFile = path.join(__dirname, "index.html");
+const controller = createBotController(DEFAULT_CONFIG);
+
+function sendJson(response, status, payload) {
+  const body = JSON.stringify(payload);
+  response.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Access-Control-Allow-Origin": "*",
+  });
+  response.end(body);
+}
 
 function readJson(request) {
   return new Promise((resolve, reject) => {
     let body = "";
     request.on("data", (chunk) => {
       body += chunk;
-      if (body.length > 1e6) {
+      if (body.length > 1_000_000) {
+        reject(new Error("Request body is too large."));
         request.destroy();
-        reject(new Error("Payload too large"));
       }
     });
     request.on("end", () => {
-      if (!body.trim()) {
-        resolve({});
-        return;
-      }
+      if (!body) return resolve({});
       try {
         resolve(JSON.parse(body));
-      } catch (error) {
-        reject(new Error("Invalid JSON body"));
+      } catch {
+        reject(new Error("Request body must be valid JSON."));
       }
     });
     request.on("error", reject);
   });
 }
 
-function sendJson(response, statusCode, data) {
-  response.writeHead(statusCode, {
-    "Content-Type": "application/json",
-    "Cache-Control": "no-store",
-  });
-  response.end(JSON.stringify(data));
-}
-
-function sendText(response, statusCode, text) {
-  response.writeHead(statusCode, { "Content-Type": "text/plain; charset=utf-8" });
-  response.end(text);
-}
-
-function serveStatic(request, response, pathname) {
-  let relativePath = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
-  let safePath = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, "");
-  let filePath = path.join(PUBLIC_DIR, safePath);
-
-  if (!filePath.startsWith(PUBLIC_DIR)) {
-    sendText(response, 403, "Forbidden");
-    return;
+function cleanConfig(input = {}) {
+  const result = {};
+  if (typeof input.host === "string" && input.host.trim()) {
+    result.host = input.host.trim();
   }
-
-  if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
-    filePath = path.join(filePath, "index.html");
-  }
-
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      if (err.code === "ENOENT") {
-        sendText(response, 404, "Not Found");
-      } else {
-        sendText(response, 500, "Internal Server Error");
-      }
-      return;
+  if (input.port !== undefined) {
+    const port = Number(input.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error("Port must be a number between 1 and 65535.");
     }
+    result.port = port;
+  }
+  if (typeof input.username === "string" && input.username.trim()) {
+    const username = input.username.trim();
+    if (username.length > 16) throw new Error("Minecraft usernames can be at most 16 characters.");
+    result.username = username;
+  }
+  if (typeof input.version === "string" && input.version.trim()) {
+    result.version = input.version.trim();
+  }
+  if (typeof input.auth === "string" && input.auth.trim()) {
+    result.auth = input.auth.trim();
+  }
+  return result;
+}
 
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-      ".html": "text/html; charset=utf-8",
-      ".css": "text/css; charset=utf-8",
-      ".js": "application/javascript; charset=utf-8",
-      ".json": "application/json; charset=utf-8",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".svg": "image/svg+xml",
-      ".ico": "image/x-icon",
-    };
-
-    response.writeHead(200, {
-      "Content-Type": mimeTypes[ext] || "application/octet-stream",
-      "Cache-Control": "no-cache",
-    });
-    response.end(data);
-  });
+function cleanBehavior(input = {}) {
+  const result = {};
+  for (const key of ["antiAfk", "autoJump", "killAnimals", "autoReconnect"]) {
+    if (input[key] !== undefined) {
+      if (typeof input[key] !== "boolean") {
+        throw new Error(`${key} must be true or false.`);
+      }
+      result[key] = input[key];
+    }
+  }
+  return result;
 }
 
 async function handleApi(request, response, url) {
@@ -97,65 +86,70 @@ async function handleApi(request, response, url) {
     }
 
     if (request.method === "GET" && url.pathname === "/api/logs") {
-      const after = url.searchParams.get("after") || 0;
-      return sendJson(response, 200, {
-        logs: controller.getLogs(after),
-        status: controller.getStatus(),
-      });
+      return sendJson(response, 200, { logs: controller.getLogs(url.searchParams.get("after")) });
     }
 
     if (request.method === "POST" && url.pathname === "/api/bot/start") {
-      const payload = await readJson(request);
-      const status = controller.start(payload);
-      return sendJson(response, 200, { ok: true, status });
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/bot/stop") {
-      const status = controller.stop();
-      return sendJson(response, 200, { ok: true, status });
+      const config = cleanConfig(await readJson(request));
+      return sendJson(response, 200, { ok: true, status: controller.start(config) });
     }
 
     if (request.method === "POST" && url.pathname === "/api/bot/restart") {
-      const payload = await readJson(request);
-      const status = controller.restart(payload);
-      return sendJson(response, 200, { ok: true, status });
+      const config = cleanConfig(await readJson(request));
+      return sendJson(response, 200, { ok: true, status: controller.restart(config) });
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/bot/stop") {
+      return sendJson(response, 200, { ok: true, status: controller.stop() });
     }
 
     if (request.method === "POST" && url.pathname === "/api/bot/behavior") {
-      const payload = await readJson(request);
-      const status = controller.setBehavior(payload);
-      return sendJson(response, 200, { ok: true, status });
+      const behavior = cleanBehavior(await readJson(request));
+      return sendJson(response, 200, { ok: true, status: controller.setBehavior(behavior) });
     }
 
-    if (request.method === "POST" && url.pathname === "/api/bot/chat") {
-      const payload = await readJson(request);
-      const result = controller.chat(payload.message);
-      return sendJson(response, 200, { ok: true, ...result, status: controller.getStatus() });
+    if (request.method === "POST" && url.pathname === "/api/chat") {
+      const { message } = await readJson(request);
+      const result = controller.chat(message);
+      return sendJson(response, 200, { ok: true, ...result });
     }
 
-    if (request.method === "POST" && url.pathname === "/api/bot/click") {
-      const { slot, mouseButton, mode } = await readJson(request);
-      const result = await controller.clickWindowSlot(slot, mouseButton, mode);
-      return sendJson(response, 200, { ok: true, ...result, status: controller.getStatus() });
-    }
-
-    return sendJson(response, 404, { error: "API route not found" });
+    sendJson(response, 404, { error: "Not found." });
   } catch (error) {
-    return sendJson(response, 400, { error: error.message || "Bad Request" });
+    sendJson(response, 400, { error: error.message });
   }
 }
 
 const server = http.createServer((request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
-
   if (url.pathname.startsWith("/api/")) {
     handleApi(request, response, url);
-  } else {
-    serveStatic(request, response, url.pathname);
+    return;
   }
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    sendJson(response, 405, { error: "Method not allowed." });
+    return;
+  }
+
+  if (url.pathname === "/" || url.pathname === "/index.html") {
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    return response.end(fs.readFileSync(publicFile));
+  }
+
+  response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+  response.end("Not found.");
 });
 
-server.listen(PORT, () => {
-  console.log(`[dashboard] Web server running on port ${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`[web] CraftHost dashboard listening on port ${PORT}`);
   controller.start();
 });
+
+function shutdown() {
+  controller.stop();
+  server.close(() => process.exit(0));
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
