@@ -1,5 +1,3 @@
-// Replace or update your createBotController function in bot.js
-
 const mineflayer = require("mineflayer");
 const readline = require("readline");
 
@@ -119,9 +117,28 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     if (!behavior.killAnimals) return;
 
     const animalNames = new Set([
-      "armadillo", "bee", "camel", "cat", "chicken", "cow", "donkey",
-      "fox", "goat", "horse", "llama", "mule", "mooshroom", "ocelot",
-      "parrot", "pig", "rabbit", "sheep", "sniffer", "strider", "turtle", "wolf",
+      "armadillo",
+      "bee",
+      "camel",
+      "cat",
+      "chicken",
+      "cow",
+      "donkey",
+      "fox",
+      "goat",
+      "horse",
+      "llama",
+      "mule",
+      "mooshroom",
+      "ocelot",
+      "parrot",
+      "pig",
+      "rabbit",
+      "sheep",
+      "sniffer",
+      "strider",
+      "turtle",
+      "wolf",
     ]);
 
     const hunt = () => {
@@ -170,7 +187,7 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     try {
       currentBot.quit();
     } catch {
-      // Socket may already be closed
+      // The socket may already be closed.
     }
   }
 
@@ -213,11 +230,6 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       addLog(`[system] ${bot.username} joined the Minecraft server.`);
       startAntiAfk(bot, thisConnection);
       startAnimalGuard(bot, thisConnection);
-    });
-
-    // GUI / Window Interaction Listener
-    bot.on("windowOpen", (window) => {
-      addLog(`[gui] Window opened: ${window.title || window.type} (ID: ${window.id})`);
     });
 
     bot.on("chat", (username, message) => {
@@ -342,54 +354,12 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       return this.getStatus();
     },
 
-    // Window / GUI Click Method
-    async clickWindowSlot(slotNumber, mouseButton = 0, mode = 0) {
-      if (!bot || state !== "online") throw new Error("Bot is offline.");
-      if (!bot.currentWindow) throw new Error("No inventory window currently open.");
-      
-      await bot.clickWindow(slotNumber, mouseButton, mode);
-      addLog(`[gui] Clicked slot ${slotNumber} in window.`);
-      return { success: true };
-    },
-
-    // Swing Arm / Left Click Trigger
-    async swingArm() {
-      if (!bot || state !== "online") throw new Error("Bot is offline.");
-      bot.swingArm();
-      addLog("[action] Swung arm / left clicked.");
-      return { success: true };
-    },
-
-    // Right Click / Activate Item in Hand
-    async activateItem() {
-      if (!bot || state !== "online") throw new Error("Bot is offline.");
-      bot.activateItem();
-      addLog("[action] Activated main hand item / right clicked.");
-      return { success: true };
-    },
-
     chat(message) {
       const cleanMessage = String(message || "").trim();
       if (!cleanMessage) throw new Error("Message cannot be empty.");
       if (!bot || state !== "online") {
         throw new Error("The bot is not connected to Minecraft.");
       }
-
-      // Intercept CLI/Chat Commands for In-Game Interactions
-      if (cleanMessage.startsWith("/clickslot ")) {
-        const slot = parseInt(cleanMessage.split(" ")[1], 10);
-        if (!isNaN(slot)) {
-          this.clickWindowSlot(slot);
-          return { sent: true };
-        }
-      } else if (cleanMessage === "/swing") {
-        this.swingArm();
-        return { sent: true };
-      } else if (cleanMessage === "/use") {
-        this.activateItem();
-        return { sent: true };
-      }
-
       bot.chat(cleanMessage);
       if (cleanMessage.startsWith("/")) {
         metrics.commandsExecuted += 1;
