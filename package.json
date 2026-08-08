@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node public/index.js",
     "test": "node --check public/index.js && node --check public/bot.js && node --check public/server.js",
-    "render-build": "NODE_OPTIONS=\"--max-old-space-size=512\" npm ci --omit=dev --no-audit --no-fund"
+    "render-build": "npm install --omit=dev"
   },
   "dependencies": {
     "mineflayer": "^4.37.1"
