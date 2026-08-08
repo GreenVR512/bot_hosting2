@@ -1,4 +1,7 @@
+// Replace or update your createBotController function in bot.js
+
 const mineflayer = require("mineflayer");
+const readline = require("readline");
 
 const DEFAULT_CONFIG = {
   host: process.env.MC_HOST || "theweirdpeoplelol.aternos.me",
@@ -16,26 +19,18 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
   let retryTimer = null;
   let movementTimer = null;
   let jumpTimer = null;
-  let targetPlayerTimer = null;
-  let autoEatTimer = null;
-  let guardTimer = null;
-  let animalTimer = null;
   let shouldRun = false;
   let connectionId = 0;
   let sequence = 0;
   let usageMs = 0;
   let usageStartedAt = null;
-
+  let animalTimer = null;
   const behavior = {
     antiAfk: true,
     autoJump: true,
     killAnimals: false,
-    targetPlayers: false,
-    autoEat: true,
-    guardMode: false,
     autoReconnect: true,
   };
-
   const metrics = {
     messagesSent: 0,
     commandsExecuted: 0,
@@ -62,26 +57,39 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     }
   }
 
-  function stopAllTimers() {
-    if (movementTimer) { clearInterval(movementTimer); movementTimer = null; }
-    if (jumpTimer) { clearInterval(jumpTimer); jumpTimer = null; }
-    if (targetPlayerTimer) { clearInterval(targetPlayerTimer); targetPlayerTimer = null; }
-    if (autoEatTimer) { clearInterval(autoEatTimer); autoEatTimer = null; }
-    if (guardTimer) { clearInterval(guardTimer); guardTimer = null; }
-    if (animalTimer) { clearInterval(animalTimer); animalTimer = null; }
-    if (bot?.clearControlStates) { bot.clearControlStates(); }
+  function stopAntiAfk() {
+    if (movementTimer) {
+      clearInterval(movementTimer);
+      movementTimer = null;
+    }
+    if (jumpTimer) {
+      clearInterval(jumpTimer);
+      jumpTimer = null;
+    }
+    if (bot?.clearControlStates) {
+      bot.clearControlStates();
+    }
+  }
+
+  function stopAnimalGuard() {
+    if (animalTimer) {
+      clearInterval(animalTimer);
+      animalTimer = null;
+    }
   }
 
   function startAntiAfk(currentBot, currentConnection) {
-    if (movementTimer) clearInterval(movementTimer);
-    if (jumpTimer) clearInterval(jumpTimer);
+    stopAntiAfk();
     if (!behavior.antiAfk) return;
 
     const movementStates = ["forward", "left", "forward", "right"];
     let movementIndex = 0;
 
     const move = () => {
-      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") return;
+      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") {
+        stopAntiAfk();
+        return;
+      }
       currentBot.clearControlStates();
       currentBot.setControlState(movementStates[movementIndex], true);
       movementIndex = (movementIndex + 1) % movementStates.length;
@@ -91,7 +99,10 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     movementTimer = setInterval(move, 4500);
     if (behavior.autoJump) {
       jumpTimer = setInterval(() => {
-        if (currentConnection !== connectionId || currentBot !== bot || state !== "online") return;
+        if (currentConnection !== connectionId || currentBot !== bot || state !== "online") {
+          stopAntiAfk();
+          return;
+        }
         currentBot.setControlState("jump", true);
         setTimeout(() => {
           if (currentConnection === connectionId && currentBot === bot && state === "online") {
@@ -100,99 +111,43 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
         }, 450);
       }, 3500);
     }
-  }
-
-  function startPlayerTargeting(currentBot, currentConnection) {
-    if (targetPlayerTimer) clearInterval(targetPlayerTimer);
-    if (!behavior.targetPlayers) return;
-
-    const track = () => {
-      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") return;
-      const playerTarget = currentBot.nearestEntity((e) => e.type === "player" && e.username !== currentBot.username);
-      if (playerTarget && playerTarget.position) {
-        currentBot.lookAt(playerTarget.position.offset(0, playerTarget.height || 1.6, 0), true);
-        const dist = currentBot.entity.position.distanceTo(playerTarget.position);
-        currentBot.setControlState("forward", dist > 2);
-      }
-    };
-
-    track();
-    targetPlayerTimer = setInterval(track, 1000);
-  }
-
-  function startAutoEat(currentBot, currentConnection) {
-    if (autoEatTimer) clearInterval(autoEatTimer);
-    if (!behavior.autoEat) return;
-
-    const checkHunger = async () => {
-      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") return;
-      if (currentBot.food < 18) {
-        const foodItem = currentBot.inventory.items().find((item) =>
-          item.name.includes("cooked") || item.name.includes("bread") || item.name.includes("apple")
-        );
-        if (foodItem) {
-          try {
-            await currentBot.equip(foodItem, "hand");
-            await currentBot.consume();
-            addLog(`[auto-eat] Consumed ${foodItem.name}.`);
-          } catch (err) {}
-        }
-      }
-    };
-
-    autoEatTimer = setInterval(checkHunger, 5000);
-  }
-
-  function startGuardMode(currentBot, currentConnection) {
-    if (guardTimer) clearInterval(guardTimer);
-    if (!behavior.guardMode) return;
-
-    const guard = () => {
-      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") return;
-      const hostile = currentBot.nearestEntity((e) => {
-        if (!e?.position || e.type !== "mob") return false;
-        return ["zombie", "skeleton", "spider", "creeper", "enderman"].includes(e.name) &&
-          currentBot.entity.position.distanceTo(e.position) <= 6;
-      });
-
-      if (hostile) {
-        try {
-          currentBot.lookAt(hostile.position.offset(0, hostile.height / 2, 0), true);
-          currentBot.attack(hostile);
-        } catch (e) {}
-      }
-    };
-
-    guard();
-    guardTimer = setInterval(guard, 1500);
+    addLog("[anti-afk] Auto-movement and jumping enabled.");
   }
 
   function startAnimalGuard(currentBot, currentConnection) {
-    if (animalTimer) clearInterval(animalTimer);
+    stopAnimalGuard();
     if (!behavior.killAnimals) return;
 
-    const animalNames = new Set(["cow", "pig", "sheep", "chicken", "rabbit"]);
+    const animalNames = new Set([
+      "armadillo", "bee", "camel", "cat", "chicken", "cow", "donkey",
+      "fox", "goat", "horse", "llama", "mule", "mooshroom", "ocelot",
+      "parrot", "pig", "rabbit", "sheep", "sniffer", "strider", "turtle", "wolf",
+    ]);
+
     const hunt = () => {
-      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") return;
-      const target = currentBot.nearestEntity((e) => e?.position && animalNames.has(e.name) && currentBot.entity.position.distanceTo(e.position) <= 5);
-      if (target) {
-        try {
-          currentBot.lookAt(target.position.offset(0, target.height / 2, 0), true);
-          currentBot.attack(target);
-        } catch (e) {}
+      if (currentConnection !== connectionId || currentBot !== bot || state !== "online") {
+        stopAnimalGuard();
+        return;
+      }
+
+      const target = currentBot.nearestEntity((entity) => {
+        if (!entity?.position || !animalNames.has(entity.name)) return false;
+        return currentBot.entity.position.distanceTo(entity.position) <= 5;
+      });
+
+      if (!target) return;
+      try {
+        currentBot.lookAt(target.position.offset(0, target.height / 2, 0), true);
+        currentBot.attack(target);
+        addLog(`[combat] Attacked nearby ${target.name}.`);
+      } catch (error) {
+        addLog(`[combat] Could not attack ${target.name}: ${error.message}`, "warning");
       }
     };
 
     hunt();
     animalTimer = setInterval(hunt, 2500);
-  }
-
-  function applyActiveBehaviors(currentBot, currentConnection) {
-    startAntiAfk(currentBot, currentConnection);
-    startPlayerTargeting(currentBot, currentConnection);
-    startAutoEat(currentBot, currentConnection);
-    startGuardMode(currentBot, currentConnection);
-    startAnimalGuard(currentBot, currentConnection);
+    addLog("[combat] Passive-animal targeting enabled within 5 blocks.");
   }
 
   function scheduleRetry() {
@@ -202,16 +157,21 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       retryTimer = null;
       connect();
     }, 5000);
-    addLog("[system] Retrying Minecraft connection in 5 seconds...", "warning");
+    addLog("[system] Will retry the Minecraft connection in 5 seconds.", "warning");
   }
 
   function closeCurrentBot() {
     if (!bot) return;
-    stopAllTimers();
+    stopAntiAfk();
+    stopAnimalGuard();
     const currentBot = bot;
     bot = null;
     currentBot.removeAllListeners();
-    try { currentBot.quit(); } catch {}
+    try {
+      currentBot.quit();
+    } catch {
+      // Socket may already be closed
+    }
   }
 
   function accrueUsage() {
@@ -240,7 +200,7 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       bot = mineflayer.createBot(botOptions);
     } catch (error) {
       state = "error";
-      addLog(`[error] Could not create bot: ${error.message}`, "error");
+      addLog(`[error] Could not create the bot: ${error.message}`, "error");
       scheduleRetry();
       return;
     }
@@ -250,8 +210,14 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
       state = "online";
       startedAt = Date.now();
       usageStartedAt = startedAt;
-      addLog(`[system] ${bot.username} joined the server.`);
-      applyActiveBehaviors(bot, thisConnection);
+      addLog(`[system] ${bot.username} joined the Minecraft server.`);
+      startAntiAfk(bot, thisConnection);
+      startAnimalGuard(bot, thisConnection);
+    });
+
+    // GUI / Window Interaction Listener
+    bot.on("windowOpen", (window) => {
+      addLog(`[gui] Window opened: ${window.title || window.type} (ID: ${window.id})`);
     });
 
     bot.on("chat", (username, message) => {
@@ -265,7 +231,8 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
 
     bot.on("error", (error) => {
       if (thisConnection !== connectionId) return;
-      stopAllTimers();
+      stopAntiAfk();
+      stopAnimalGuard();
       accrueUsage();
       startedAt = null;
       usageStartedAt = null;
@@ -276,12 +243,13 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
 
     bot.on("kicked", (reason) => {
       if (thisConnection !== connectionId) return;
-      addLog(`[server] Bot kicked: ${typeof reason === 'string' ? reason : JSON.stringify(reason)}`, "warning");
+      addLog(`[server] Bot was kicked: ${formatReason(reason)}`, "warning");
     });
 
     bot.on("end", () => {
       if (thisConnection !== connectionId) return;
-      stopAllTimers();
+      stopAntiAfk();
+      stopAnimalGuard();
       accrueUsage();
       bot = null;
       startedAt = null;
@@ -292,12 +260,27 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     });
   }
 
+  function formatReason(reason) {
+    if (typeof reason === "string") return reason;
+    try {
+      return JSON.stringify(reason);
+    } catch {
+      return "Unknown reason";
+    }
+  }
+
   return {
     start(nextConfig = {}) {
-      config = { ...config, ...nextConfig, port: Number(nextConfig.port || config.port) };
+      config = {
+        ...config,
+        ...nextConfig,
+        port: Number(nextConfig.port || config.port),
+      };
       shouldRun = true;
       clearRetry();
-      if (state === "online" || state === "connecting") return this.getStatus();
+      if (state === "online" || state === "connecting") {
+        return this.getStatus();
+      }
       connect();
       return this.getStatus();
     },
@@ -305,19 +288,29 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
     stop() {
       shouldRun = false;
       clearRetry();
-      stopAllTimers();
+      stopAntiAfk();
+      stopAnimalGuard();
       connectionId += 1;
       accrueUsage();
       closeCurrentBot();
       startedAt = null;
       usageStartedAt = null;
       state = "offline";
-      addLog("[system] Bot stopped.");
+      addLog("[system] Bot stopped by dashboard.");
       return this.getStatus();
     },
 
     restart(nextConfig = {}) {
-      this.stop();
+      shouldRun = false;
+      clearRetry();
+      stopAntiAfk();
+      stopAnimalGuard();
+      connectionId += 1;
+      accrueUsage();
+      closeCurrentBot();
+      startedAt = null;
+      usageStartedAt = null;
+      state = "offline";
       return this.start(nextConfig);
     },
 
@@ -327,19 +320,82 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
           behavior[key] = nextBehavior[key];
         }
       }
-      if (!behavior.autoReconnect) clearRetry();
-      if (bot && state === "online") applyActiveBehaviors(bot, connectionId);
-      addLog(`[settings] Behaviors updated.`);
+
+      if (!behavior.autoReconnect) {
+        clearRetry();
+      }
+
+      if (bot && state === "online") {
+        if (behavior.antiAfk) {
+          startAntiAfk(bot, connectionId);
+        } else {
+          stopAntiAfk();
+        }
+        if (behavior.killAnimals) {
+          startAnimalGuard(bot, connectionId);
+        } else {
+          stopAnimalGuard();
+        }
+      }
+
+      addLog(`[settings] Behavior updated: AFK ${behavior.antiAfk ? "on" : "off"}, animal targeting ${behavior.killAnimals ? "on" : "off"}.`);
       return this.getStatus();
+    },
+
+    // Window / GUI Click Method
+    async clickWindowSlot(slotNumber, mouseButton = 0, mode = 0) {
+      if (!bot || state !== "online") throw new Error("Bot is offline.");
+      if (!bot.currentWindow) throw new Error("No inventory window currently open.");
+      
+      await bot.clickWindow(slotNumber, mouseButton, mode);
+      addLog(`[gui] Clicked slot ${slotNumber} in window.`);
+      return { success: true };
+    },
+
+    // Swing Arm / Left Click Trigger
+    async swingArm() {
+      if (!bot || state !== "online") throw new Error("Bot is offline.");
+      bot.swingArm();
+      addLog("[action] Swung arm / left clicked.");
+      return { success: true };
+    },
+
+    // Right Click / Activate Item in Hand
+    async activateItem() {
+      if (!bot || state !== "online") throw new Error("Bot is offline.");
+      bot.activateItem();
+      addLog("[action] Activated main hand item / right clicked.");
+      return { success: true };
     },
 
     chat(message) {
       const cleanMessage = String(message || "").trim();
       if (!cleanMessage) throw new Error("Message cannot be empty.");
-      if (!bot || state !== "online") throw new Error("Bot is not connected.");
+      if (!bot || state !== "online") {
+        throw new Error("The bot is not connected to Minecraft.");
+      }
+
+      // Intercept CLI/Chat Commands for In-Game Interactions
+      if (cleanMessage.startsWith("/clickslot ")) {
+        const slot = parseInt(cleanMessage.split(" ")[1], 10);
+        if (!isNaN(slot)) {
+          this.clickWindowSlot(slot);
+          return { sent: true };
+        }
+      } else if (cleanMessage === "/swing") {
+        this.swingArm();
+        return { sent: true };
+      } else if (cleanMessage === "/use") {
+        this.activateItem();
+        return { sent: true };
+      }
+
       bot.chat(cleanMessage);
-      if (cleanMessage.startsWith("/")) metrics.commandsExecuted += 1;
-      else metrics.messagesSent += 1;
+      if (cleanMessage.startsWith("/")) {
+        metrics.commandsExecuted += 1;
+      } else {
+        metrics.messagesSent += 1;
+      }
       addLog(`[chat] <${bot.username}> ${cleanMessage}`);
       return { sent: true };
     },
@@ -361,7 +417,11 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
         players: players.length,
         playerNames: players.slice(0, 20),
         behavior: { ...behavior },
-        metrics: { ...metrics, usageMs, usageHours: Number((usageMs / 3600000).toFixed(4)) },
+        metrics: {
+          ...metrics,
+          usageMs,
+          usageHours: Number((usageMs / 3600000).toFixed(4)),
+        },
         lastLogId: sequence,
       };
     },
@@ -377,3 +437,21 @@ function createBotController(initialConfig = DEFAULT_CONFIG) {
 }
 
 module.exports = { createBotController, DEFAULT_CONFIG };
+
+if (require.main === module) {
+  const controller = createBotController();
+  controller.start();
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  rl.on("line", (line) => {
+    try {
+      controller.chat(line);
+    } catch (error) {
+      console.error(`[error] ${error.message}`);
+    }
+  });
+  process.on("SIGINT", () => {
+    controller.stop();
+    rl.close();
+    process.exit(0);
+  });
+}
