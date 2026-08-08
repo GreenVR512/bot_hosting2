@@ -1,403 +1,1759 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minecraft Bot Controller</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="CraftHost Minecraft bot hosting command center."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2372e3c3'/%3E%3Cpath d='M8 18l8-11 8 11M11 18h10v7H11z' fill='none' stroke='%2308171f' stroke-width='2.5'/%3E%3C/svg%3E"
+    />
+    <title>CraftHost — Minecraft bot hosting</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #08111f;
+        --panel: #0e1a2b;
+        --panel-raised: #122238;
+        --panel-soft: #0b1727;
+        --line: rgba(159, 186, 221, 0.13);
+        --line-strong: rgba(159, 186, 221, 0.23);
+        --text: #f1f6fb;
+        --muted: #8da0b9;
+        --muted-bright: #b8c6d8;
+        --mint: #72e3c3;
+        --mint-dark: #163b3a;
+        --violet: #9a88ff;
+        --amber: #ffbf70;
+        --danger: #ff7f95;
+        --shadow: 0 24px 70px rgba(1, 8, 19, 0.3);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
 
-    body {
-      background: #121212;
-      color: #e0e0e0;
-      padding: 20px;
-    }
+      * {
+        box-sizing: border-box;
+      }
 
-    .container {
-      max-width: 1000px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 76% -10%, rgba(93, 77, 192, 0.17), transparent 34rem),
+          radial-gradient(circle at 0% 48%, rgba(41, 135, 131, 0.08), transparent 28rem),
+          var(--bg);
+      }
 
-    .card {
-      background: #1e1e1e;
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 20px;
-    }
+      button,
+      input {
+        font: inherit;
+      }
 
-    .full-width {
-      grid-column: 1 / -1;
-    }
+      button {
+        cursor: pointer;
+      }
 
-    h2 {
-      margin-bottom: 15px;
-      font-size: 1.2rem;
-      color: #fff;
-      border-bottom: 1px solid #333;
-      padding-bottom: 8px;
-    }
+      .app-shell {
+        display: flex;
+        min-height: 100vh;
+      }
 
-    .status-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 15px;
-    }
+      .sidebar {
+        position: sticky;
+        top: 0;
+        display: flex;
+        flex: 0 0 244px;
+        flex-direction: column;
+        width: 244px;
+        height: 100vh;
+        padding: 27px 16px 18px;
+        border-right: 1px solid var(--line);
+        background: rgba(7, 17, 31, 0.78);
+        backdrop-filter: blur(18px);
+      }
 
-    .status-badge {
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 0.85rem;
-      font-weight: bold;
-      text-transform: uppercase;
-    }
+      .brand {
+        display: flex;
+        gap: 11px;
+        align-items: center;
+        padding: 0 12px;
+        margin-bottom: 42px;
+        color: var(--text);
+        font-size: 16px;
+        font-weight: 750;
+        letter-spacing: -0.03em;
+      }
 
-    .status-online { background: #2e7d32; color: #fff; }
-    .status-offline { background: #c62828; color: #fff; }
-    .status-connecting { background: #f57f17; color: #fff; }
+      .brand-mark {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        color: #071721;
+        background: var(--mint);
+        border-radius: 9px;
+        box-shadow: 0 0 23px rgba(114, 227, 195, 0.2);
+      }
 
-    .btn {
-      background: #333;
-      color: #fff;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.2s, opacity 0.2s;
-    }
+      .brand-mark svg {
+        width: 18px;
+        height: 18px;
+      }
 
-    .btn:hover { background: #444; }
-    .btn-primary { background: #1976d2; }
-    .btn-primary:hover { background: #1565c0; }
-    .btn-danger { background: #d32f2f; }
-    .btn-danger:hover { background: #c62828; }
+      .eyebrow {
+        padding: 0 12px;
+        margin: 0 0 10px;
+        color: #667c98;
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
 
-    /* Action & GUI Controls */
-    .action-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 12px;
-      margin-bottom: 15px;
-    }
+      .nav-list {
+        display: grid;
+        gap: 4px;
+        margin-bottom: 27px;
+      }
 
-    .action-card {
-      background: #282828;
-      border: 1px solid #3d3d3d;
-      border-radius: 6px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+      .nav-item {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        width: 100%;
+        padding: 10px 12px;
+        color: var(--muted);
+        text-align: left;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 9px;
+        transition: 160ms ease;
+      }
 
-    .action-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.9rem;
-      font-weight: bold;
-    }
+      .nav-item:hover,
+      .nav-item.active {
+        color: var(--text);
+        background: rgba(136, 166, 202, 0.09);
+        border-color: var(--line);
+      }
 
-    .state-tag {
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 0.75rem;
-      font-weight: bold;
-      text-transform: uppercase;
-    }
+      .nav-item.active {
+        box-shadow: inset 2px 0 0 var(--mint);
+      }
 
-    .state-tag.enabled { background: #2e7d32; color: #e8f5e9; }
-    .state-tag.disabled { background: #424242; color: #9e9e9e; }
+      .nav-item svg {
+        flex: 0 0 auto;
+        width: 16px;
+        height: 16px;
+        opacity: 0.82;
+      }
 
-    .gui-input-group {
-      display: flex;
-      gap: 8px;
-      margin-top: 5px;
-    }
+      .nav-item span {
+        font-size: 12px;
+        font-weight: 630;
+      }
 
-    input[type="text"], input[type="number"] {
-      background: #2a2a2a;
-      border: 1px solid #444;
-      color: #fff;
-      padding: 8px;
-      border-radius: 4px;
-      width: 100%;
-    }
+      .sidebar-spacer {
+        flex: 1;
+      }
 
-    .console {
-      background: #000;
-      color: #00ff00;
-      font-family: monospace;
-      padding: 12px;
-      border-radius: 4px;
-      height: 250px;
-      overflow-y: auto;
-      margin-bottom: 10px;
-      white-space: pre-wrap;
-      font-size: 0.85rem;
-    }
+      .upgrade-card {
+        padding: 14px;
+        margin: 0 4px 15px;
+        background:
+          linear-gradient(140deg, rgba(139, 115, 255, 0.19), rgba(87, 57, 176, 0.04)),
+          var(--panel);
+        border: 1px solid rgba(153, 135, 255, 0.2);
+        border-radius: 12px;
+      }
 
-    .chat-input {
-      display: flex;
-      gap: 8px;
-    }
-  </style>
-</head>
-<body>
+      .upgrade-card strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+      }
 
-  <div class="container">
-    
-    <!-- Status & Connection Card -->
-    <div class="card">
-      <div class="status-header">
-        <h2>Bot Status</h2>
-        <span id="bot-status-badge" class="status-badge status-offline">Offline</span>
-      </div>
-      <p><strong>Username:</strong> <span id="bot-username">-</span></p>
-      <p><strong>Server:</strong> <span id="bot-server">-</span></p>
-      <p><strong>Uptime:</strong> <span id="bot-uptime">0s</span></p>
-      <br>
-      <div style="display: flex; gap: 8px;">
-        <button class="btn btn-primary" onclick="startBot()">Start Bot</button>
-        <button class="btn btn-danger" onclick="stopBot()">Stop Bot</button>
-      </div>
-    </div>
+      .upgrade-card p {
+        margin: 0 0 13px;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.5;
+      }
 
-    <!-- Behavior Controls -->
-    <div class="card">
-      <h2>Behavior Settings</h2>
-      <div style="display: flex; flex-direction: column; gap: 10px;">
-        <label>
-          <input type="checkbox" id="chk-afk" onchange="updateBehavior()"> Anti-AFK Movement
-        </label>
-        <label>
-          <input type="checkbox" id="chk-reconnect" onchange="updateBehavior()"> Auto Reconnect
-        </label>
-        <label>
-          <input type="checkbox" id="chk-animals" onchange="updateBehavior()"> Auto Attack Animals
-        </label>
-      </div>
-    </div>
+      .upgrade-link {
+        display: inline-flex;
+        gap: 5px;
+        align-items: center;
+        padding: 0;
+        color: #c5bbff;
+        font-size: 10px;
+        font-weight: 700;
+        background: transparent;
+        border: 0;
+      }
 
-    <!-- GUI & Item Action Controls -->
-    <div class="card full-width">
-      <h2>GUI & Action Controls</h2>
-      <div class="action-grid">
-        
-        <!-- Slot Clicker -->
-        <div class="action-card">
-          <div class="action-card-header">
-            <span>GUI Inventory Click</span>
-            <span id="tag-gui-click" class="state-tag disabled">Disabled</span>
-          </div>
-          <div class="gui-input-group">
-            <input type="number" id="click-slot-id" placeholder="Slot #" min="0" value="0">
-            <button class="btn btn-primary" onclick="triggerSlotClick()">Click Slot</button>
-          </div>
-        </div>
+      .profile {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        padding: 11px 12px 0;
+        border-top: 1px solid var(--line);
+      }
 
-        <!-- Swing Arm / Left Click -->
-        <div class="action-card">
-          <div class="action-card-header">
-            <span>Swing Arm (Left-Click)</span>
-            <span id="tag-swing" class="state-tag disabled">Disabled</span>
-          </div>
-          <button class="btn" onclick="triggerSwingArm()">Swing Arm</button>
-        </div>
+      .avatar {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        color: #d4ccff;
+        font-size: 10px;
+        font-weight: 750;
+        background: #3a326f;
+        border: 1px solid rgba(173, 161, 255, 0.28);
+        border-radius: 50%;
+      }
 
-        <!-- Right Click / Use Item -->
-        <div class="action-card">
-          <div class="action-card-header">
-            <span>Use Item (Right-Click)</span>
-            <span id="tag-use" class="state-tag disabled">Disabled</span>
-          </div>
-          <button class="btn" onclick="triggerUseItem()">Use / Activate</button>
-        </div>
+      .profile-copy {
+        display: grid;
+        gap: 2px;
+      }
 
-      </div>
-    </div>
+      .profile-copy strong {
+        font-size: 11px;
+      }
 
-    <!-- Live Console & Chat -->
-    <div class="card full-width">
-      <h2>Live Console</h2>
-      <div id="console-log" class="console"></div>
-      <div class="chat-input">
-        <input type="text" id="chat-message" placeholder="Type chat message or command (/clickslot 0, /swing, /use)..." onkeypress="handleKeyPress(event)">
-        <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
-      </div>
-    </div>
+      .profile-copy span {
+        color: var(--muted);
+        font-size: 9px;
+      }
 
-  </div>
+      .main {
+        width: min(100%, 1320px);
+        padding: 27px clamp(22px, 4vw, 58px) 44px;
+        margin: 0 auto;
+      }
 
-  <script>
-    let lastLogId = 0;
-    let actionTimeoutWindow = null;
+      .topbar {
+        display: flex;
+        gap: 18px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 39px;
+      }
 
-    // Helper to toggle status tags dynamically
-    function setTagState(elementId, isEnabled, durationMs = 3000) {
-      const tag = document.getElementById(elementId);
-      if (!tag) return;
+      .topbar h1 {
+        margin: 0 0 6px;
+        font-size: clamp(23px, 2.6vw, 31px);
+        font-weight: 650;
+        letter-spacing: -0.045em;
+      }
 
-      if (isEnabled) {
-        tag.textContent = "Enabled";
-        tag.className = "state-tag enabled";
-        
-        if (durationMs > 0) {
-          setTimeout(() => {
-            tag.textContent = "Disabled";
-            tag.className = "state-tag disabled";
-          }, durationMs);
+      .topbar p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .topbar-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .icon-button,
+      .secondary-button,
+      .primary-button {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        height: 37px;
+        padding: 0 14px;
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 8px;
+        transition: 160ms ease;
+      }
+
+      .icon-button {
+        width: 37px;
+        padding: 0;
+        color: var(--muted-bright);
+        background: var(--panel);
+        border: 1px solid var(--line);
+      }
+
+      .icon-button:hover,
+      .secondary-button:hover {
+        border-color: var(--line-strong);
+        background: var(--panel-raised);
+      }
+
+      .icon-button svg,
+      .secondary-button svg,
+      .primary-button svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .secondary-button {
+        color: var(--muted-bright);
+        background: var(--panel);
+        border: 1px solid var(--line);
+      }
+
+      .primary-button {
+        color: #071721;
+        background: var(--mint);
+        border: 1px solid var(--mint);
+        box-shadow: 0 8px 22px rgba(114, 227, 195, 0.13);
+      }
+
+      .primary-button:hover {
+        background: #9bf2d8;
+        border-color: #9bf2d8;
+        transform: translateY(-1px);
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(255px, 0.85fr);
+        gap: 18px;
+      }
+
+      .card {
+        background: linear-gradient(145deg, rgba(18, 34, 56, 0.83), rgba(11, 23, 39, 0.93));
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        box-shadow: var(--shadow);
+      }
+
+      .card-header {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .card-title {
+        margin: 0;
+        font-size: 12px;
+        font-weight: 750;
+        letter-spacing: -0.01em;
+      }
+
+      .card-subtitle {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .live-badge {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        padding: 6px 8px;
+        color: var(--mint);
+        font-size: 9px;
+        font-weight: 750;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: rgba(114, 227, 195, 0.09);
+        border: 1px solid rgba(114, 227, 195, 0.16);
+        border-radius: 6px;
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--mint);
+        border-radius: 50%;
+        box-shadow: 0 0 0 3px rgba(114, 227, 195, 0.12);
+      }
+
+      .bot-card {
+        overflow: hidden;
+      }
+
+      .bot-overview {
+        display: flex;
+        gap: 18px;
+        align-items: center;
+        padding: 21px 20px 20px;
+      }
+
+      .bot-icon {
+        display: grid;
+        flex: 0 0 auto;
+        width: 58px;
+        height: 58px;
+        place-items: center;
+        color: var(--mint);
+        background:
+          linear-gradient(145deg, rgba(114, 227, 195, 0.18), rgba(53, 110, 110, 0.05)),
+          #102a36;
+        border: 1px solid rgba(114, 227, 195, 0.2);
+        border-radius: 13px;
+      }
+
+      .bot-icon svg {
+        width: 30px;
+        height: 30px;
+      }
+
+      .bot-name {
+        margin: 0 0 4px;
+        font-size: 21px;
+        font-weight: 650;
+        letter-spacing: -0.04em;
+      }
+
+      .bot-description {
+        margin: 0;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .bot-meta {
+        display: flex;
+        gap: 18px;
+        align-items: center;
+        margin-left: auto;
+      }
+
+      .meta-item {
+        display: grid;
+        gap: 5px;
+        padding-left: 18px;
+        border-left: 1px solid var(--line);
+      }
+
+      .meta-item span {
+        color: var(--muted);
+        font-size: 9px;
+      }
+
+      .meta-item strong {
+        color: var(--muted-bright);
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .bot-controls {
+        display: flex;
+        gap: 9px;
+        padding: 0 20px 20px;
+      }
+
+      .bot-controls .secondary-button {
+        height: 32px;
+        font-size: 10px;
+      }
+
+      .server-card {
+        padding-bottom: 18px;
+      }
+
+      .server-card .card-header {
+        border-bottom: 0;
+      }
+
+      .server-visual {
+        position: relative;
+        min-height: 117px;
+        margin: 0 20px 15px;
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(14, 25, 44, 0.11), rgba(14, 25, 44, 0.8)),
+          repeating-linear-gradient(135deg, rgba(120, 156, 195, 0.08) 0 1px, transparent 1px 20px),
+          linear-gradient(120deg, #132e3d, #1f2541 55%, #30265c);
+        border: 1px solid rgba(125, 160, 201, 0.13);
+        border-radius: 10px;
+      }
+
+      .server-visual::after {
+        position: absolute;
+        right: 22%;
+        bottom: -36px;
+        width: 120px;
+        height: 83px;
+        content: "";
+        background: rgba(118, 224, 199, 0.18);
+        filter: blur(30px);
+        border-radius: 50%;
+      }
+
+      .mountain {
+        position: absolute;
+        bottom: 0;
+        width: 0;
+        height: 0;
+        border-right: 85px solid transparent;
+        border-bottom: 74px solid rgba(8, 19, 34, 0.62);
+        border-left: 85px solid transparent;
+      }
+
+      .mountain.one {
+        left: 24px;
+      }
+
+      .mountain.two {
+        right: 34px;
+        transform: scale(1.35);
+        transform-origin: bottom;
+        opacity: 0.65;
+      }
+
+      .server-label {
+        position: absolute;
+        z-index: 1;
+        top: 15px;
+        left: 16px;
+        color: #c1cee0;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .server-details {
+        display: grid;
+        gap: 10px;
+        padding: 0 20px;
+      }
+
+      .server-detail {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 9px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .server-detail:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+
+      .server-detail span {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .server-detail strong {
+        color: var(--muted-bright);
+        font-size: 10px;
+        font-weight: 650;
+      }
+
+      .copy-value {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--mint) !important;
+        cursor: pointer;
+      }
+
+      .copy-value svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      .usage-card {
+        min-height: 184px;
+      }
+
+      .usage-body {
+        padding: 19px 20px;
+      }
+
+      .usage-numbers {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .usage-numbers strong {
+        font-size: 25px;
+        font-weight: 650;
+        letter-spacing: -0.05em;
+      }
+
+      .usage-numbers span {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .progress {
+        height: 6px;
+        overflow: hidden;
+        background: #182a42;
+        border-radius: 5px;
+      }
+
+      .progress span {
+        display: block;
+        width: 31%;
+        height: 100%;
+        background: linear-gradient(90deg, var(--violet), #c5adff);
+        border-radius: inherit;
+      }
+
+      .usage-foot {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 9px;
+        color: var(--muted);
+        font-size: 9px;
+      }
+
+      .stats-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .stat-card {
+        padding: 17px 18px;
+      }
+
+      .stat-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+
+      .stat-label {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .stat-icon {
+        display: grid;
+        width: 25px;
+        height: 25px;
+        place-items: center;
+        color: var(--mint);
+        background: rgba(114, 227, 195, 0.09);
+        border-radius: 7px;
+      }
+
+      .stat-icon.violet {
+        color: var(--violet);
+        background: rgba(154, 136, 255, 0.1);
+      }
+
+      .stat-icon.amber {
+        color: var(--amber);
+        background: rgba(255, 191, 112, 0.1);
+      }
+
+      .stat-icon svg {
+        width: 13px;
+        height: 13px;
+      }
+
+      .stat-value {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 23px;
+        font-weight: 650;
+        letter-spacing: -0.05em;
+      }
+
+      .stat-change {
+        color: var(--mint);
+        font-size: 9px;
+      }
+
+      .lower-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(255px, 0.85fr);
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .console-card {
+        overflow: hidden;
+      }
+
+      .console-card .card-header {
+        padding-bottom: 14px;
+      }
+
+      .console-body {
+        min-height: 210px;
+        padding: 12px 20px 18px;
+        background: rgba(3, 11, 21, 0.26);
+      }
+
+      .console-line {
+        display: flex;
+        gap: 11px;
+        margin: 0 0 12px;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 10px;
+        line-height: 1.45;
+      }
+
+      .console-time {
+        flex: 0 0 auto;
+        color: #546a84;
+      }
+
+      .console-message {
+        color: #b5c3d3;
+      }
+
+      .console-message .highlight {
+        color: var(--mint);
+      }
+
+      .console-message .purple {
+        color: #c6b9ff;
+      }
+
+      .console-input {
+        display: flex;
+        gap: 8px;
+        margin-top: 24px;
+      }
+
+      .console-input input {
+        min-width: 0;
+        flex: 1;
+        height: 34px;
+        padding: 0 11px;
+        color: var(--text);
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 10px;
+        background: #0a1626;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        outline: 0;
+      }
+
+      .console-input input:focus {
+        border-color: rgba(114, 227, 195, 0.55);
+        box-shadow: 0 0 0 3px rgba(114, 227, 195, 0.08);
+      }
+
+      .console-input button {
+        width: 34px;
+        height: 34px;
+        color: #071721;
+        background: var(--mint);
+        border: 0;
+        border-radius: 7px;
+      }
+
+      .console-input button svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .behavior-card {
+        margin-top: 18px;
+        overflow: hidden;
+      }
+
+      .behavior-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        padding: 8px 0;
+      }
+
+      .behavior-option {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 67px;
+        padding: 12px 20px;
+        color: var(--muted-bright);
+        text-align: left;
+        background: transparent;
+        border: 0;
+        border-right: 1px solid var(--line);
+      }
+
+      .behavior-option:last-child {
+        border-right: 0;
+      }
+
+      .behavior-option:hover {
+        background: rgba(136, 166, 202, 0.07);
+      }
+
+      .behavior-copy {
+        display: grid;
+        gap: 4px;
+      }
+
+      .behavior-copy strong {
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .behavior-copy span {
+        color: var(--muted);
+        font-size: 9px;
+        line-height: 1.35;
+      }
+
+      .behavior-toggle {
+        position: relative;
+        flex: 0 0 auto;
+        width: 33px;
+        height: 19px;
+        padding: 0;
+        background: #1b2b41;
+        border: 1px solid var(--line-strong);
+        border-radius: 12px;
+        transition: 160ms ease;
+      }
+
+      .behavior-toggle::after {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 11px;
+        height: 11px;
+        content: "";
+        background: #71849e;
+        border-radius: 50%;
+        transition: 160ms ease;
+      }
+
+      .behavior-toggle[aria-checked="true"] {
+        background: rgba(114, 227, 195, 0.22);
+        border-color: rgba(114, 227, 195, 0.56);
+      }
+
+      .behavior-toggle[aria-checked="true"]::after {
+        left: 17px;
+        background: var(--mint);
+        box-shadow: 0 0 10px rgba(114, 227, 195, 0.38);
+      }
+
+      .quick-card {
+        overflow: hidden;
+      }
+
+      .quick-list {
+        display: grid;
+        gap: 1px;
+        padding: 7px 0;
+      }
+
+      .quick-action {
+        display: flex;
+        gap: 11px;
+        align-items: center;
+        padding: 10px 20px;
+        color: var(--muted-bright);
+        text-align: left;
+        background: transparent;
+        border: 0;
+        transition: 160ms ease;
+      }
+
+      .quick-action:hover {
+        background: rgba(136, 166, 202, 0.07);
+      }
+
+      .quick-action-icon {
+        display: grid;
+        flex: 0 0 auto;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        color: var(--violet);
+        background: rgba(154, 136, 255, 0.1);
+        border-radius: 7px;
+      }
+
+      .quick-action:nth-child(2) .quick-action-icon {
+        color: var(--amber);
+        background: rgba(255, 191, 112, 0.1);
+      }
+
+      .quick-action:nth-child(3) .quick-action-icon {
+        color: var(--mint);
+        background: rgba(114, 227, 195, 0.1);
+      }
+
+      .quick-action-icon svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .quick-copy {
+        display: grid;
+        gap: 3px;
+      }
+
+      .quick-copy strong {
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .quick-copy span {
+        color: var(--muted);
+        font-size: 9px;
+      }
+
+      .toast {
+        position: fixed;
+        right: 22px;
+        bottom: 22px;
+        z-index: 10;
+        max-width: calc(100vw - 44px);
+        padding: 11px 14px;
+        color: #071721;
+        font-size: 11px;
+        font-weight: 700;
+        background: var(--mint);
+        border-radius: 8px;
+        box-shadow: 0 12px 28px rgba(1, 8, 19, 0.4);
+        opacity: 0;
+        transform: translateY(8px);
+        pointer-events: none;
+        transition: 180ms ease;
+      }
+
+      .toast.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (max-width: 980px) {
+        .sidebar {
+          flex-basis: 208px;
+          width: 208px;
         }
-      } else {
-        tag.textContent = "Disabled";
-        tag.className = "state-tag disabled";
+
+        .main {
+          padding-right: 24px;
+          padding-left: 24px;
+        }
+
+        .dashboard-grid,
+        .lower-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .behavior-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .behavior-option:nth-child(2) {
+          border-right: 0;
+        }
+
+        .behavior-option:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--line);
+        }
+
+        .server-card {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          align-items: start;
+        }
+
+        .server-card .card-header {
+          grid-column: 1 / -1;
+        }
+
+        .server-visual {
+          margin-right: 0;
+        }
       }
-    }
 
-    async function fetchStatus() {
-      try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        
-        const badge = document.getElementById('bot-status-badge');
-        badge.textContent = data.state;
-        badge.className = `status-badge status-${data.state}`;
+      @media (max-width: 680px) {
+        .app-shell {
+          display: block;
+        }
 
-        document.getElementById('bot-username').textContent = data.username || '-';
-        document.getElementById('bot-server').textContent = `${data.config.host}:${data.config.port}`;
-        document.getElementById('bot-uptime').textContent = Math.floor(data.uptimeMs / 1000) + 's';
+        .sidebar {
+          position: static;
+          display: block;
+          width: auto;
+          height: auto;
+          padding: 16px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
 
-        document.getElementById('chk-afk').checked = !!data.behavior.antiAfk;
-        document.getElementById('chk-reconnect').checked = !!data.behavior.autoReconnect;
-        document.getElementById('chk-animals').checked = !!data.behavior.killAnimals;
-      } catch (e) {
-        console.error(e);
+        .brand {
+          margin-bottom: 17px;
+        }
+
+        .sidebar .eyebrow,
+        .sidebar-spacer,
+        .upgrade-card,
+        .profile {
+          display: none;
+        }
+
+        .nav-list {
+          display: flex;
+          gap: 5px;
+          margin-bottom: 0;
+          overflow-x: auto;
+        }
+
+        .nav-item {
+          flex: 0 0 auto;
+          width: auto;
+          padding: 8px 10px;
+        }
+
+        .nav-item span {
+          font-size: 10px;
+        }
+
+        .main {
+          padding: 26px 16px 34px;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          margin-bottom: 27px;
+        }
+
+        .topbar-actions .secondary-button {
+          display: none;
+        }
+
+        .topbar-actions {
+          gap: 7px;
+        }
+
+        .topbar h1 {
+          font-size: 24px;
+        }
+
+        .topbar p {
+          max-width: 180px;
+          line-height: 1.4;
+        }
+
+        .bot-overview {
+          align-items: flex-start;
+        }
+
+        .bot-meta {
+          display: none;
+        }
+
+        .server-card {
+          display: block;
+        }
+
+        .server-visual {
+          margin-right: 20px;
+        }
+
+        .stats-row {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+
+        .stat-card {
+          padding: 14px 16px;
+        }
+
+        .stat-top {
+          margin-bottom: 7px;
+        }
+
+        .stat-value {
+          display: inline-block;
+          margin: 0 8px 0 0;
+        }
+
+        .stat-change {
+          display: inline-block;
+        }
+
+        .behavior-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .behavior-option,
+        .behavior-option:nth-child(2) {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .behavior-option:last-child {
+          border-bottom: 0;
+        }
+
+        .card-header {
+          padding-right: 16px;
+          padding-left: 16px;
+        }
+
+        .console-body {
+          padding-right: 16px;
+          padding-left: 16px;
+        }
+
+        .bot-overview,
+        .bot-controls {
+          padding-right: 16px;
+          padding-left: 16px;
+        }
       }
-    }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <path d="M5 13.5 12 4l7 9.5M7.5 13.5h9M9 13.5v5h6v-5" />
+              <path d="M4 19h16" />
+            </svg>
+          </div>
+          <span>crafthost</span>
+        </div>
 
-    async function fetchLogs() {
-      try {
-        const res = await fetch(`/api/logs?after=${lastLogId}`);
-        const data = await res.json();
-        
-        if (data.logs && data.logs.length > 0) {
-          const consoleEl = document.getElementById('console-log');
-          data.logs.forEach(log => {
-            consoleEl.innerText += `\n[${log.time.split('T')[1].slice(0, 8)}] ${log.message}`;
-            lastLogId = log.id;
+        <p class="eyebrow">Workspace</p>
+        <nav class="nav-list">
+          <button class="nav-item active" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+              <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+              <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+              <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+            </svg>
+            <span>Overview</span>
+          </button>
+          <button class="nav-item" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="4" y="5" width="16" height="14" rx="3" />
+              <path d="M8 9h.01M8 13h.01M12 9h4M12 13h4" />
+            </svg>
+            <span>My bots</span>
+          </button>
+          <button class="nav-item" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M4 19.5V8.2L12 4l8 4.2v11.3" />
+              <path d="M4 8.2 12 13l8-4.8M12 13v7" />
+            </svg>
+            <span>Server hosts</span>
+          </button>
+          <button class="nav-item" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M4 19V5M4 19h16" />
+              <path d="m7 15 3-4 3 2 5-7" />
+            </svg>
+            <span>Analytics</span>
+          </button>
+        </nav>
+
+        <p class="eyebrow">Manage</p>
+        <nav class="nav-list">
+          <button class="nav-item" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.6 15a1.7 1.7 0 0 0-1.56-1H6v-2.4h1.04a1.7 1.7 0 0 0 1.56-1 1.7 1.7 0 0 0-.34-1.88L8.2 8.66l1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1-1.56V4h2.4v1.8a1.7 1.7 0 0 0 1 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1H20v2.4h-.6a1.7 1.7 0 0 0-1.56 1Z" />
+            </svg>
+            <span>Settings</span>
+          </button>
+          <button class="nav-item" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="8.5" />
+              <path d="M12 11.5v5M12 8.2v.1" />
+            </svg>
+            <span>Help center</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-spacer"></div>
+        <div class="upgrade-card">
+          <strong>Need more uptime?</strong>
+          <p>Unlock unlimited bot slots and priority server regions.</p>
+          <button class="upgrade-link" type="button">View Pro plan <span>→</span></button>
+        </div>
+        <div class="profile">
+          <div class="avatar">JD</div>
+          <div class="profile-copy">
+            <strong>Jordan Davis</strong>
+            <span>Free workspace</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>Good morning, Jordan.</h1>
+            <p>Here’s what’s happening with your Minecraft bots today.</p>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-button" type="button" aria-label="Notifications" data-toast="You're all caught up.">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" />
+              </svg>
+            </button>
+            <button class="secondary-button" type="button" data-toast="Invite link copied to clipboard.">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Invite teammate
+            </button>
+            <button class="primary-button" id="createBot" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Create bot
+            </button>
+          </div>
+        </header>
+
+        <section class="dashboard-grid" aria-label="Bot and server overview">
+          <article class="card bot-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Active bot</h2>
+                <p class="card-subtitle">Your latest deployed Minecraft bot</p>
+              </div>
+              <div class="live-badge" id="liveBadge"><span class="status-dot"></span> Online</div>
+            </div>
+            <div class="bot-overview">
+              <div class="bot-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65">
+                  <rect x="4" y="7" width="16" height="12" rx="3" />
+                  <path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7M8.5 12h.01M15.5 12h.01M9 16h6M12 3v-1" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="bot-name" id="botName">TestingBot</h3>
+                <p class="bot-description">Survival helper · Java Edition</p>
+              </div>
+              <div class="bot-meta">
+                <div class="meta-item">
+                  <span>Uptime</span>
+                  <strong id="uptime">4d 18h 32m</strong>
+                </div>
+                <div class="meta-item">
+                  <span>Version</span>
+                  <strong>1.21.4</strong>
+                </div>
+              </div>
+            </div>
+            <div class="bot-controls">
+              <button class="secondary-button" id="restartBot" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M20 11a8 8 0 0 0-14.9-4M4 5v4h4M4 13a8 8 0 0 0 14.9 4M20 19v-4h-4" />
+                </svg>
+                Restart bot
+              </button>
+              <button class="secondary-button" id="stopBot" type="button">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="7" y="7" width="10" height="10" rx="1.5" />
+                </svg>
+                Stop bot
+              </button>
+            </div>
+          </article>
+
+          <article class="card server-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Connected server</h2>
+                <p class="card-subtitle">Connection details</p>
+              </div>
+              <div class="live-badge"><span class="status-dot"></span> Reachable</div>
+            </div>
+            <div class="server-visual" aria-label="Abstract Minecraft server landscape">
+              <span class="server-label">The Weird People</span>
+              <div class="mountain one"></div>
+              <div class="mountain two"></div>
+            </div>
+            <div class="server-details">
+              <div class="server-detail">
+                <span>Host</span>
+                <strong class="copy-value" id="serverHost" data-copy="theweirdpeoplelol.aternos.me">
+                  theweirdpeoplelol.aternos.me
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <rect x="8" y="8" width="11" height="11" rx="2" />
+                    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+                  </svg>
+                </strong>
+              </div>
+              <div class="server-detail">
+                <span>Port</span>
+                <strong id="serverPort">40676</strong>
+              </div>
+              <div class="server-detail">
+                <span>Players online</span>
+                <strong id="playersOnline">0 / 20</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="card usage-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Monthly usage</h2>
+                <p class="card-subtitle">Free plan · resets in 12 days</p>
+              </div>
+              <div class="stat-icon violet">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M4 19V5M4 19h16" />
+                  <path d="m7 15 3-4 3 2 5-7" />
+                </svg>
+              </div>
+            </div>
+            <div class="usage-body">
+              <div class="usage-numbers">
+                <strong id="monthlyUsage">0<span style="font-size: 14px; color: var(--muted)">h</span></strong>
+                <span>of 600 hours</span>
+              </div>
+              <div class="progress"><span id="usageProgress"></span></div>
+              <div class="usage-foot">
+                <span id="usagePercent">0% used</span>
+                <span id="usageRemaining">600h remaining</span>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="stats-row" aria-label="Bot statistics">
+          <article class="card stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Messages sent</span>
+              <span class="stat-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.7 8.7 0 0 1-3.2-.6L4 20l1.6-3.8A7.3 7.3 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5a7.5 7.5 0 0 1 8 7Z" />
+                </svg>
+              </span>
+            </div>
+            <strong class="stat-value" id="messagesSent">0</strong>
+            <span class="stat-change" id="messagesActivity">No activity yet</span>
+          </article>
+          <article class="card stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Commands executed</span>
+              <span class="stat-icon violet">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="m8 9 3 3-3 3M13 15h4" />
+                  <rect x="4" y="4" width="16" height="16" rx="3" />
+                </svg>
+              </span>
+            </div>
+            <strong class="stat-value" id="commandsExecuted">0</strong>
+            <span class="stat-change" id="commandsActivity">No activity yet</span>
+          </article>
+          <article class="card stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Average latency</span>
+              <span class="stat-icon amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <circle cx="12" cy="12" r="8.5" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+              </span>
+            </div>
+            <strong class="stat-value">82<span style="font-size: 13px; color: var(--muted)">ms</span></strong>
+            <span class="stat-change">↓ 4.6% this week</span>
+          </article>
+        </section>
+
+        <section class="card behavior-card" aria-label="Bot behavior settings">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Bot behavior</h2>
+              <p class="card-subtitle">Choose what TestingBot should do while it is online</p>
+            </div>
+            <div class="live-badge"><span class="status-dot"></span> Live settings</div>
+          </div>
+          <div class="behavior-grid">
+            <button class="behavior-option" type="button" data-behavior="antiAfk" aria-pressed="true">
+              <span class="behavior-copy">
+                <strong>Stay active</strong>
+                <span>Walk around to prevent AFK kicks</span>
+              </span>
+              <span class="behavior-toggle" role="switch" aria-checked="true" aria-label="Stay active"></span>
+            </button>
+            <button class="behavior-option" type="button" data-behavior="autoJump" aria-pressed="true">
+              <span class="behavior-copy">
+                <strong>Auto jump</strong>
+                <span>Jump while moving around</span>
+              </span>
+              <span class="behavior-toggle" role="switch" aria-checked="true" aria-label="Auto jump"></span>
+            </button>
+            <button class="behavior-option" type="button" data-behavior="killAnimals" aria-pressed="false">
+              <span class="behavior-copy">
+                <strong>Hunt animals</strong>
+                <span>Attack nearby passive animals</span>
+              </span>
+              <span class="behavior-toggle" role="switch" aria-checked="false" aria-label="Hunt animals"></span>
+            </button>
+            <button class="behavior-option" type="button" data-behavior="autoReconnect" aria-pressed="true">
+              <span class="behavior-copy">
+                <strong>Auto reconnect</strong>
+                <span>Reconnect after a kick or timeout</span>
+              </span>
+              <span class="behavior-toggle" role="switch" aria-checked="true" aria-label="Auto reconnect"></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="lower-grid">
+          <article class="card console-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Live console</h2>
+                <p class="card-subtitle">Real-time output from TestingBot</p>
+              </div>
+              <button class="secondary-button" type="button" data-toast="Console logs downloaded.">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M12 4v11M8 11l4 4 4-4M5 20h14" />
+                </svg>
+                Export
+              </button>
+            </div>
+            <div class="console-body">
+              <p class="console-line">
+                <span class="console-time">09:41:02</span>
+                <span class="console-message"><span class="highlight">[system]</span> Bot connected to the server.</span>
+              </p>
+              <p class="console-line">
+                <span class="console-time">09:41:04</span>
+                <span class="console-message"><span class="purple">[server]</span> Welcome, TestingBot!</span>
+              </p>
+              <p class="console-line">
+                <span class="console-time">09:45:18</span>
+                <span class="console-message"><span class="highlight">[chat]</span> alex joined the game.</span>
+              </p>
+              <p class="console-line">
+                <span class="console-time">09:47:36</span>
+                <span class="console-message"><span class="highlight">[chat]</span> &lt;TestingBot&gt; Ready when you are.</span>
+              </p>
+              <div class="console-input">
+                <input id="chatInput" type="text" placeholder="Send a chat message..." aria-label="Send a chat message" />
+                <button id="sendChat" type="button" aria-label="Send chat message">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m4 4 16 8-16 8 3-8-3-8ZM7 12h13" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article class="card quick-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Quick actions</h2>
+                <p class="card-subtitle">Common bot operations</p>
+              </div>
+            </div>
+            <div class="quick-list">
+              <button class="quick-action" type="button" data-toast="Opening the bot configuration.">
+                <span class="quick-action-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+                    <circle cx="12" cy="12" r="3.5" />
+                  </svg>
+                </span>
+                <span class="quick-copy"><strong>Configure bot</strong><span>Update behavior and events</span></span>
+              </button>
+              <button class="quick-action" type="button" data-toast="Backup created successfully.">
+                <span class="quick-action-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M5 5h14v14H5zM8 3v4M16 3v4M8 12h8M8 16h5" />
+                  </svg>
+                </span>
+                <span class="quick-copy"><strong>Create a backup</strong><span>Save your current settings</span></span>
+              </button>
+              <button class="quick-action" type="button" data-toast="Activity report is ready.">
+                <span class="quick-action-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M5 20V9M12 20V4M19 20v-7" />
+                  </svg>
+                </span>
+                <span class="quick-copy"><strong>View activity</strong><span>Inspect recent bot events</span></span>
+              </button>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      const toast = document.getElementById("toast");
+      const liveBadge = document.getElementById("liveBadge");
+      const botName = document.getElementById("botName");
+      const uptime = document.getElementById("uptime");
+      const serverHost = document.getElementById("serverHost");
+      const serverPort = document.getElementById("serverPort");
+      const playersOnline = document.getElementById("playersOnline");
+      const monthlyUsage = document.getElementById("monthlyUsage");
+      const usageProgress = document.getElementById("usageProgress");
+      const usagePercent = document.getElementById("usagePercent");
+      const usageRemaining = document.getElementById("usageRemaining");
+      const messagesSent = document.getElementById("messagesSent");
+      const commandsExecuted = document.getElementById("commandsExecuted");
+      const messagesActivity = document.getElementById("messagesActivity");
+      const commandsActivity = document.getElementById("commandsActivity");
+      const behaviorOptions = [...document.querySelectorAll("[data-behavior]")];
+      const consoleBody = document.querySelector(".console-body");
+      const consoleInput = document.querySelector(".console-input");
+      const chatInput = document.getElementById("chatInput");
+      let toastTimer;
+      let lastLogId = 0;
+      let hasLoadedLiveLogs = false;
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add("visible");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("visible"), 2600);
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function formatTime(isoTime) {
+        if (isoTime === "now") return "now";
+        return new Date(isoTime).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        });
+      }
+
+      function formatUptime(milliseconds) {
+        const totalMinutes = Math.floor(milliseconds / 60000);
+        const days = Math.floor(totalMinutes / 1440);
+        const hours = Math.floor((totalMinutes % 1440) / 60);
+        const minutes = totalMinutes % 60;
+        if (!milliseconds) return "—";
+        return `${days ? `${days}d ` : ""}${hours}h ${minutes}m`;
+      }
+
+      function formatHours(hours) {
+        if (!hours) return "0";
+        const rounded = Number(hours.toFixed(2));
+        if (!rounded) return "0";
+        if (hours < 1) return rounded.toFixed(2);
+        return hours.toFixed(1).replace(".0", "");
+      }
+
+      function renderStatus(status) {
+        const state = status.state || "offline";
+        const labels = {
+          online: ["Online", "var(--mint)", "rgba(114,227,195,.09)"],
+          connecting: ["Connecting", "var(--amber)", "rgba(255,191,112,.09)"],
+          error: ["Error", "var(--danger)", "rgba(255,127,149,.09)"],
+          offline: ["Offline", "var(--danger)", "rgba(255,127,149,.09)"],
+        };
+        const [label, color, background] = labels[state] || labels.offline;
+        const dotShadow = color === "var(--mint)"
+          ? "rgba(114,227,195,.12)"
+          : color === "var(--amber)"
+            ? "rgba(255,191,112,.12)"
+            : "rgba(255,127,149,.12)";
+        liveBadge.innerHTML = `<span class="status-dot" style="background:${color};box-shadow:0 0 0 3px ${dotShadow}"></span> ${label}`;
+        liveBadge.style.color = color;
+        liveBadge.style.background = background;
+        botName.textContent = status.username || "TestingBot";
+        uptime.textContent = formatUptime(status.uptimeMs);
+        if (status.config) {
+          serverHost.dataset.copy = status.config.host;
+          serverHost.childNodes[0].textContent = `${status.config.host} `;
+          serverPort.textContent = status.config.port;
+        }
+        playersOnline.textContent = `${status.players || 0} / 20`;
+
+        const metrics = status.metrics || {};
+        const usageHours = Number(metrics.usageHours || 0);
+        const sent = Number(metrics.messagesSent || 0);
+        const commands = Number(metrics.commandsExecuted || 0);
+        const usagePercentValue = Math.min(100, (usageHours / 600) * 100);
+        const remainingHours = Math.max(0, 600 - usageHours);
+
+        monthlyUsage.innerHTML = `${formatHours(usageHours)}<span style="font-size: 14px; color: var(--muted)">h</span>`;
+        usageProgress.style.width = `${usagePercentValue}%`;
+        usagePercent.textContent = `${usagePercentValue < 0.01 ? "0" : usagePercentValue.toFixed(1)}% used`;
+        usageRemaining.textContent = `${formatHours(remainingHours)}h remaining`;
+        messagesSent.textContent = sent.toLocaleString();
+        commandsExecuted.textContent = commands.toLocaleString();
+        messagesActivity.textContent = sent ? "Live bot activity" : "No activity yet";
+        commandsActivity.textContent = commands ? "Live bot activity" : "No activity yet";
+
+        if (status.behavior) {
+          behaviorOptions.forEach((option) => {
+            const enabled = Boolean(status.behavior[option.dataset.behavior]);
+            option.setAttribute("aria-pressed", String(enabled));
+            option.querySelector(".behavior-toggle").setAttribute("aria-checked", String(enabled));
           });
-          consoleEl.scrollTop = consoleEl.scrollHeight;
         }
-      } catch (e) {
-        console.error(e);
       }
-    }
 
-    async function startBot() {
-      await fetch('/api/bot/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-      fetchStatus();
-    }
+      function appendLogs(logs) {
+        if (!logs.length) return;
+        if (!hasLoadedLiveLogs) {
+          consoleBody.querySelectorAll(".console-line").forEach((line) => line.remove());
+          hasLoadedLiveLogs = true;
+        }
+        logs.forEach((entry) => {
+          const line = document.createElement("p");
+          line.className = "console-line";
+          const levelClass = entry.level === "error" ? "purple" : "highlight";
+          line.innerHTML = `<span class="console-time">${escapeHtml(formatTime(entry.time))}</span><span class="console-message"><span class="${levelClass}">${escapeHtml(entry.message.split("]")[0] + "]")}</span>${escapeHtml(entry.message.split("]").slice(1).join("]"))}</span>`;
+          consoleBody.insertBefore(line, consoleInput);
+          lastLogId = Math.max(lastLogId, Number(entry.id) || 0);
+        });
+      }
 
-    async function stopBot() {
-      await fetch('/api/bot/stop', { method: 'POST' });
-      setTagState('tag-gui-click', false, 0);
-      setTagState('tag-swing', false, 0);
-      setTagState('tag-use', false, 0);
-      fetchStatus();
-    }
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          ...options,
+          headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Request failed.");
+        return payload;
+      }
 
-    async function updateBehavior() {
-      const behavior = {
-        antiAfk: document.getElementById('chk-afk').checked,
-        autoReconnect: document.getElementById('chk-reconnect').checked,
-        killAnimals: document.getElementById('chk-animals').checked,
-      };
-      await fetch('/api/bot/behavior', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(behavior)
+      async function refresh() {
+        try {
+          const status = await api("/api/status");
+          renderStatus(status);
+          const logPayload = await api(`/api/logs?after=${lastLogId}`);
+          appendLogs(logPayload.logs || []);
+        } catch (error) {
+          showToast(`Dashboard connection error: ${error.message}`);
+        }
+      }
+
+      async function controlBot(action, message) {
+        try {
+          const { status } = await api(`/api/bot/${action}`, { method: "POST", body: "{}" });
+          renderStatus(status);
+          showToast(message);
+          await refresh();
+        } catch (error) {
+          showToast(error.message);
+        }
+      }
+
+      document.querySelectorAll("[data-toast]").forEach((button) => {
+        button.addEventListener("click", () => showToast(button.dataset.toast));
       });
-    }
 
-    async function triggerSlotClick() {
-      const slot = parseInt(document.getElementById('click-slot-id').value, 10);
-      try {
-        const res = await fetch('/api/bot/click', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slot, mouseButton: 0, mode: 0 })
+      document.querySelectorAll(".nav-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          document.querySelector(".nav-item.active")?.classList.remove("active");
+          item.classList.add("active");
+          showToast(`${item.querySelector("span").textContent} selected`);
         });
-        const data = await res.json();
-        if (data.ok) {
-          setTagState('tag-gui-click', true, 2500);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function triggerSwingArm() {
-      try {
-        const res = await fetch('/api/bot/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: '/swing' })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          setTagState('tag-swing', true, 1500);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function triggerUseItem() {
-      try {
-        const res = await fetch('/api/bot/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: '/use' })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          setTagState('tag-use', true, 1500);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function sendChatMessage() {
-      const input = document.getElementById('chat-message');
-      const message = input.value.trim();
-      if (!message) return;
-
-      await fetch('/api/bot/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
       });
-      input.value = '';
-    }
 
-    function handleKeyPress(e) {
-      if (e.key === 'Enter') sendChatMessage();
-    }
+      document.querySelectorAll("[data-copy]").forEach((value) => {
+        value.addEventListener("click", async () => {
+          const text = value.dataset.copy;
+          try {
+            await navigator.clipboard.writeText(text);
+            showToast("Server host copied to clipboard.");
+          } catch {
+            showToast(text);
+          }
+        });
+      });
 
-    setInterval(fetchStatus, 3000);
-    setInterval(fetchLogs, 1000);
-    fetchStatus();
-    fetchLogs();
-  </script>
-</body>
+      document.getElementById("stopBot").addEventListener("click", () => {
+        controlBot("stop", "TestingBot stopped.");
+      });
+
+      document.getElementById("restartBot").addEventListener("click", () => {
+        controlBot("restart", "TestingBot is reconnecting to Minecraft.");
+      });
+
+      behaviorOptions.forEach((option) => {
+        option.addEventListener("click", async () => {
+          const behavior = option.dataset.behavior;
+          const current = option.getAttribute("aria-pressed") === "true";
+          try {
+            const payload = await api("/api/bot/behavior", {
+              method: "POST",
+              body: JSON.stringify({ [behavior]: !current }),
+            });
+            renderStatus(payload.status);
+            showToast(`${option.querySelector("strong").textContent} ${!current ? "enabled" : "disabled"}.`);
+          } catch (error) {
+            showToast(error.message);
+          }
+        });
+      });
+
+      document.getElementById("createBot").addEventListener("click", async () => {
+        const host = prompt("Minecraft server host:", serverHost.dataset.copy || "theweirdpeoplelol.aternos.me");
+        if (!host?.trim()) return;
+        const port = prompt("Minecraft server port:", serverPort.textContent || "40676");
+        const username = prompt("Bot username:", botName.textContent || "TestingBot");
+        try {
+          const payload = await api("/api/bot/restart", {
+            method: "POST",
+            body: JSON.stringify({ host: host.trim(), port: Number(port), username: username?.trim() || "TestingBot" }),
+          });
+          renderStatus(payload.status);
+          showToast("Bot configuration saved. Connecting now.");
+          await refresh();
+        } catch (error) {
+          showToast(error.message);
+        }
+      });
+
+      async function sendChat() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+        try {
+          await api("/api/chat", { method: "POST", body: JSON.stringify({ message }) });
+          chatInput.value = "";
+          await refresh();
+          showToast("Message sent to the Minecraft server.");
+        } catch (error) {
+          showToast(error.message);
+        }
+      }
+
+      document.getElementById("sendChat").addEventListener("click", sendChat);
+      chatInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") sendChat();
+      });
+
+      refresh();
+      setInterval(refresh, 2500);
+    </script>
+  </body>
 </html>
